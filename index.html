@@ -158,8 +158,8 @@
                         </div>
                     </div>
 
-                    <!-- Skin Palette Selector -->
-                    <div>
+                    <!-- Skin Palette Selector (solo / vs CPU) -->
+                    <div id="soloPaletteSection">
                         <span class="text-xs font-bold text-slate-500 tracking-wider block mb-1.5 uppercase">Snake Palette</span>
                         <div class="grid grid-cols-4 gap-2">
                             <button onclick="setPalette('emerald')" id="pal-emerald" class="p-2 rounded-lg border-2 border-emerald-400 bg-slate-900 flex justify-center items-center space-x-1">
@@ -174,6 +174,28 @@
                             <button onclick="setPalette('ocean')" id="pal-ocean" class="p-2 rounded-lg border border-slate-800 bg-slate-900 flex justify-center items-center space-x-1">
                                 <span class="w-3 h-3 rounded-full bg-cyan-400"></span>
                             </button>
+                        </div>
+                    </div>
+
+                    <!-- Dual palette selector (2 player local) -->
+                    <div id="localPaletteSection" class="hidden space-y-3">
+                        <div>
+                            <span class="text-xs font-bold text-emerald-500/80 tracking-wider block mb-1.5 uppercase">Player 1 Colour (WASD)</span>
+                            <div class="grid grid-cols-4 gap-2">
+                                <button onclick="setPlayerPalette(1,'emerald')" id="pal-p1-emerald" class="p-2 rounded-lg border-2 border-emerald-400 bg-slate-900 flex justify-center items-center"><span class="w-3 h-3 rounded-full bg-emerald-400"></span></button>
+                                <button onclick="setPlayerPalette(1,'cyber')" id="pal-p1-cyber" class="p-2 rounded-lg border border-slate-800 bg-slate-900 flex justify-center items-center"><span class="w-3 h-3 rounded-full bg-pink-500"></span></button>
+                                <button onclick="setPlayerPalette(1,'gold')" id="pal-p1-gold" class="p-2 rounded-lg border border-slate-800 bg-slate-900 flex justify-center items-center"><span class="w-3 h-3 rounded-full bg-amber-400"></span></button>
+                                <button onclick="setPlayerPalette(1,'ocean')" id="pal-p1-ocean" class="p-2 rounded-lg border border-slate-800 bg-slate-900 flex justify-center items-center"><span class="w-3 h-3 rounded-full bg-cyan-400"></span></button>
+                            </div>
+                        </div>
+                        <div>
+                            <span class="text-xs font-bold text-cyan-500/80 tracking-wider block mb-1.5 uppercase">Player 2 Colour (Arrows)</span>
+                            <div class="grid grid-cols-4 gap-2">
+                                <button onclick="setPlayerPalette(2,'emerald')" id="pal-p2-emerald" class="p-2 rounded-lg border border-slate-800 bg-slate-900 flex justify-center items-center"><span class="w-3 h-3 rounded-full bg-emerald-400"></span></button>
+                                <button onclick="setPlayerPalette(2,'cyber')" id="pal-p2-cyber" class="p-2 rounded-lg border-2 border-pink-500 bg-slate-900 flex justify-center items-center"><span class="w-3 h-3 rounded-full bg-pink-500"></span></button>
+                                <button onclick="setPlayerPalette(2,'gold')" id="pal-p2-gold" class="p-2 rounded-lg border border-slate-800 bg-slate-900 flex justify-center items-center"><span class="w-3 h-3 rounded-full bg-amber-400"></span></button>
+                                <button onclick="setPlayerPalette(2,'ocean')" id="pal-p2-ocean" class="p-2 rounded-lg border border-slate-800 bg-slate-900 flex justify-center items-center"><span class="w-3 h-3 rounded-full bg-cyan-400"></span></button>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -324,7 +346,7 @@
                 </div>
                 <div>
                     <h4 class="font-bold text-emerald-300 mb-1 uppercase">2 Player Local</h4>
-                    <p><span class="text-emerald-400 font-bold">Player 1</span> uses <span class="text-amber-400 font-bold">W-A-S-D</span>. <span class="text-cyan-400 font-bold">Player 2</span> uses <span class="text-amber-400 font-bold">ARROW KEYS</span>. Race for coins on the same board — highest score wins if both crash!</p>
+                    <p><span class="text-emerald-400 font-bold">Player 1</span> uses <span class="text-amber-400 font-bold">W-A-S-D</span>. <span class="text-cyan-400 font-bold">Player 2</span> uses <span class="text-amber-400 font-bold">ARROW KEYS</span>. Each player picks their own snake colour in the menu. Highest score wins if both crash!</p>
                 </div>
                 <div>
                     <h4 class="font-bold text-emerald-300 mb-1 uppercase">Solo Pace</h4>
@@ -556,7 +578,9 @@
             pauseIcon: document.getElementById('pauseIcon'),
             cpuDifficultySection: document.getElementById('cpuDifficultySection'),
             soloPaceSection: document.getElementById('soloPaceSection'),
-            gameModeSection: document.getElementById('gameModeSection')
+            gameModeSection: document.getElementById('gameModeSection'),
+            soloPaletteSection: document.getElementById('soloPaletteSection'),
+            localPaletteSection: document.getElementById('localPaletteSection')
         };
 
         const FOOD_COUNT_SOLO = 4;
@@ -573,6 +597,15 @@
         // Current Config Settings
         let currentMode = 'classic';
         let currentPalette = 'emerald';
+        let player2Palette = localStorage.getItem('snake_odyssey_p2_palette') || 'cyber';
+        if (!Palettes[player2Palette]) player2Palette = 'cyber';
+
+        const PALETTE_ACCENT = {
+            emerald: { glow: 'rgba(16, 185, 129, 0.4)', bg: 'bg-emerald-500', border: 'border-emerald-400' },
+            cyber:   { glow: 'rgba(236, 72, 153, 0.4)', bg: 'bg-pink-500', border: 'border-pink-500' },
+            gold:    { glow: 'rgba(251, 191, 36, 0.4)', bg: 'bg-amber-400', border: 'border-amber-400' },
+            ocean:   { glow: 'rgba(34, 211, 238, 0.4)', bg: 'bg-cyan-400', border: 'border-cyan-400' }
+        };
         let opponentType = 'solo'; // solo, cpu, local
         let cpuDifficulty = 'medium'; // easy, medium, hard, challenging (ultra)
         let soloPace = localStorage.getItem('snake_odyssey_pace') || 'standard';
@@ -723,6 +756,8 @@
                 UI.hudHighScoreLabel.textContent = "P2 ARROWS";
                 UI.cpuDifficultySection.classList.add('hidden');
                 UI.soloPaceSection.classList.add('hidden');
+                UI.soloPaletteSection.classList.add('hidden');
+                UI.localPaletteSection.classList.remove('hidden');
                 activePower = null;
                 powerup = null;
                 powerupTimer = 0;
@@ -731,9 +766,16 @@
                 UI.hudHighScoreLabel.textContent = "HIGH SCORE";
                 UI.cpuDifficultySection.classList.add('hidden');
                 UI.soloPaceSection.classList.remove('hidden');
+                UI.soloPaletteSection.classList.remove('hidden');
+                UI.localPaletteSection.classList.add('hidden');
                 activePower = null;
                 powerup = null;
                 powerupTimer = 0;
+            }
+
+            if (type === 'cpu') {
+                UI.soloPaletteSection.classList.remove('hidden');
+                UI.localPaletteSection.classList.add('hidden');
             }
 
             AudioEngine.playBeep(220, 0.05, 'triangle', 0.03);
@@ -779,34 +821,51 @@
             AudioEngine.playBeep(261.63, 0.05, 'triangle', 0.03); // Feedback sound
         };
 
-        window.setPalette = function(paletteKey) {
-            currentPalette = paletteKey;
+        function highlightPaletteButtons(prefix, selectedKey) {
             Object.keys(Palettes).forEach(key => {
-                const btn = document.getElementById(`pal-${key}`);
-                if (key === paletteKey) {
-                    btn.classList.add('border-2');
-                    btn.classList.add('border-cyan-400');
-                    btn.classList.remove('border-slate-800');
+                const btn = document.getElementById(`${prefix}${key}`);
+                if (!btn) return;
+                const accent = PALETTE_ACCENT[key];
+                if (key === selectedKey) {
+                    btn.className = `p-2 rounded-lg border-2 ${accent.border} bg-slate-900 flex justify-center items-center`;
                 } else {
-                    btn.classList.remove('border-2');
-                    btn.classList.remove('border-cyan-400');
-                    btn.classList.add('border-slate-800');
+                    btn.className = "p-2 rounded-lg border border-slate-800 bg-slate-900 flex justify-center items-center";
                 }
             });
-            
-            // Re-render CTA button color schema to match palette
-            const accentColors = {
-                emerald: { glow: 'rgba(16, 185, 129, 0.4)', bg: 'bg-emerald-500' },
-                cyber: { glow: 'rgba(236, 72, 153, 0.4)', bg: 'bg-pink-500' },
-                gold: { glow: 'rgba(251, 191, 36, 0.4)', bg: 'bg-amber-400' },
-                ocean: { glow: 'rgba(34, 211, 238, 0.4)', bg: 'bg-cyan-400' }
-            };
-            const currentAccent = accentColors[paletteKey];
-            UI.startPlayBtn.className = `neon-glow-btn w-full py-3 ${currentAccent.bg} text-slate-950 font-black rounded-xl tracking-widest text-lg orbitron`;
-            UI.startPlayBtn.style.setProperty('--glow-color', currentAccent.glow);
+        }
 
-            AudioEngine.playBeep(329.63, 0.05, 'triangle', 0.03); // Feedback sound
+        function applyStartButtonAccent(paletteKey) {
+            const accent = PALETTE_ACCENT[paletteKey] || PALETTE_ACCENT.emerald;
+            UI.startPlayBtn.className = `neon-glow-btn w-full py-3 ${accent.bg} text-slate-950 font-black rounded-xl tracking-widest text-lg orbitron`;
+            UI.startPlayBtn.style.setProperty('--glow-color', accent.glow);
+        }
+
+        window.setPlayerPalette = function(player, paletteKey) {
+            if (!Palettes[paletteKey]) return;
+
+            if (player === 1) {
+                currentPalette = paletteKey;
+                highlightPaletteButtons('pal-p1-', paletteKey);
+                applyStartButtonAccent(paletteKey);
+            } else {
+                player2Palette = paletteKey;
+                localStorage.setItem('snake_odyssey_p2_palette', player2Palette);
+                highlightPaletteButtons('pal-p2-', paletteKey);
+            }
+            AudioEngine.playBeep(329.63 + (player === 2 ? 55 : 0), 0.05, 'triangle', 0.03);
         };
+
+        window.setPalette = function(paletteKey) {
+            currentPalette = paletteKey;
+            highlightPaletteButtons('pal-', paletteKey);
+            applyStartButtonAccent(paletteKey);
+            AudioEngine.playBeep(329.63, 0.05, 'triangle', 0.03);
+        };
+
+        function getRivalPalette() {
+            if (isLocal2P()) return Palettes[player2Palette];
+            return getCpuPalette();
+        }
 
         // Get contrasting skin profile for CPU
         function getCpuPalette() {
@@ -1324,7 +1383,7 @@
                     const points = (eaten.type === 'bonus') ? 30 : 10;
 
                     cpuScore += points;
-                    createExplosion(eaten.x, eaten.y, getCpuPalette().particle);
+                    createExplosion(eaten.x, eaten.y, getRivalPalette().particle);
                     AudioEngine.playEat();
 
                     foods.splice(cpuEatIndex, 1);
@@ -1787,7 +1846,7 @@
 
             // Draw CPU Rival Snake if active
             if (cpuActive) {
-                const cpuPalette = getCpuPalette();
+                const cpuPalette = getRivalPalette();
                 cpuSnake.forEach((segment, index) => {
                     const isHead = index === 0;
                     
@@ -1954,6 +2013,9 @@
 
         // Initialize menu selections from persisted settings
         setSoloPace(soloPace);
+        setPalette(currentPalette);
+        setPlayerPalette(1, currentPalette);
+        setPlayerPalette(2, player2Palette);
         setOpponent(opponentType);
 
         // Launch Frame Process Lifecycle
