@@ -304,6 +304,10 @@
                     <p>Use Keyboard <span class="text-amber-400 font-bold">W-A-S-D</span>, <span class="text-amber-400 font-bold">ARROW KEYS</span>, or the interactive virtual d-pad on touch screens.</p>
                 </div>
                 <div>
+                    <h4 class="font-bold text-emerald-300 mb-1 uppercase">Audio</h4>
+                    <p>Toggle the speaker icon for sound effects and ambient background music during gameplay. Music pauses when the game is paused.</p>
+                </div>
+                <div>
                     <h4 class="font-bold text-emerald-300 mb-1 uppercase">Dynamic Game Modes</h4>
                     <ul class="list-disc pl-4 space-y-1">
                         <li><b class="text-slate-100">Classic:</b> Keep strictly inside bounds. Any border collision is instant failure.</li>
@@ -342,13 +346,25 @@
         const AudioEngine = {
             ctx: null,
             enabled: true,
+            musicPlaying: false,
+            musicPaused: false,
+            musicInterval: null,
+            musicGain: null,
+            padOsc1: null,
+            padOsc2: null,
+            musicStep: 0,
+            arpPattern: [220, 261.63, 329.63, 392, 440, 392, 329.63, 261.63],
 
             init() {
-                if (this.ctx) return;
-                try {
-                    this.ctx = new (window.AudioContext || window.webkitAudioContext)();
-                } catch(e) {
-                    console.warn("Web Audio API not supported", e);
+                if (!this.ctx) {
+                    try {
+                        this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+                    } catch (e) {
+                        console.warn("Web Audio API not supported", e);
+                    }
+                }
+                if (this.ctx && this.ctx.state === 'suspended') {
+                    this.ctx.resume();
                 }
             },
 
@@ -357,42 +373,131 @@
                 try {
                     const osc = this.ctx.createOscillator();
                     const gain = this.ctx.createGain();
-                    
+
                     osc.type = type;
                     osc.frequency.setValueAtTime(freq, this.ctx.currentTime);
-                    
+
                     gain.gain.setValueAtTime(gainValue, this.ctx.currentTime);
                     gain.gain.exponentialRampToValueAtTime(0.0001, this.ctx.currentTime + duration);
-                    
+
                     osc.connect(gain);
                     gain.connect(this.ctx.destination);
-                    
+
                     osc.start();
                     osc.stop(this.ctx.currentTime + duration);
-                } catch(e) { /* Fallback */ }
+                } catch (e) { /* Fallback */ }
+            },
+
+            _playArpNote(freq) {
+                if (!this.ctx || !this.musicGain) return;
+                try {
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    osc.type = 'triangle';
+                    osc.frequency.value = freq;
+                    const t = this.ctx.currentTime;
+                    gain.gain.setValueAtTime(0.055, t);
+                    gain.gain.exponentialRampToValueAtTime(0.001, t + 0.34);
+                    osc.connect(gain);
+                    gain.connect(this.musicGain);
+                    osc.start(t);
+                    osc.stop(t + 0.36);
+                } catch (e) { /* Fallback */ }
+            },
+
+            startBackgroundMusic() {
+                if (!this.enabled || !this.ctx) return;
+                this.stopBackgroundMusic();
+                this.init();
+
+                this.musicPlaying = true;
+                this.musicPaused = false;
+
+                this.musicGain = this.ctx.createGain();
+                this.musicGain.gain.value = 0.032;
+                this.musicGain.connect(this.ctx.destination);
+
+                const createPad = (freq, detune = 0) => {
+                    const osc = this.ctx.createOscillator();
+                    osc.type = 'sine';
+                    osc.frequency.value = freq;
+                    osc.detune.value = detune;
+                    const g = this.ctx.createGain();
+                    g.gain.value = 0.12;
+                    osc.connect(g);
+                    g.connect(this.musicGain);
+                    osc.start();
+                    return osc;
+                };
+
+                this.padOsc1 = createPad(110);
+                this.padOsc2 = createPad(164.81, 4);
+
+                this.musicStep = 0;
+                this.musicInterval = setInterval(() => {
+                    if (!this.musicPlaying || this.musicPaused || !this.enabled) return;
+                    const freq = this.arpPattern[this.musicStep % this.arpPattern.length];
+                    this.musicStep++;
+                    this._playArpNote(freq);
+                }, 400);
+            },
+
+            stopBackgroundMusic() {
+                this.musicPlaying = false;
+                this.musicPaused = false;
+                if (this.musicInterval) {
+                    clearInterval(this.musicInterval);
+                    this.musicInterval = null;
+                }
+                [this.padOsc1, this.padOsc2].forEach(osc => {
+                    if (osc) {
+                        try { osc.stop(); } catch (e) { /* already stopped */ }
+                    }
+                });
+                this.padOsc1 = this.padOsc2 = null;
+                if (this.musicGain) {
+                    try { this.musicGain.disconnect(); } catch (e) { /* noop */ }
+                    this.musicGain = null;
+                }
+            },
+
+            pauseBackgroundMusic() {
+                if (!this.musicPlaying || this.musicPaused) return;
+                this.musicPaused = true;
+                if (this.musicGain) {
+                    this.musicGain.gain.setValueAtTime(0.006, this.ctx.currentTime);
+                }
+            },
+
+            resumeBackgroundMusic() {
+                if (!this.musicPlaying || !this.musicPaused) return;
+                this.musicPaused = false;
+                if (this.musicGain) {
+                    this.musicGain.gain.setValueAtTime(0.032, this.ctx.currentTime);
+                }
             },
 
             playEat() {
-                this.playBeep(523.25, 0.08, 'triangle', 0.1); // C5
-                setTimeout(() => this.playBeep(659.25, 0.08, 'triangle', 0.08), 50); // E5
+                this.playBeep(523.25, 0.08, 'triangle', 0.1);
+                setTimeout(() => this.playBeep(659.25, 0.08, 'triangle', 0.08), 50);
             },
 
             playPowerup() {
-                this.playBeep(330, 0.1, 'sawtooth', 0.05); // E4
-                setTimeout(() => this.playBeep(440, 0.1, 'sawtooth', 0.05), 60); // A4
-                setTimeout(() => this.playBeep(554, 0.15, 'sawtooth', 0.05), 120); // C#5
+                this.playBeep(330, 0.1, 'sawtooth', 0.05);
+                setTimeout(() => this.playBeep(440, 0.1, 'sawtooth', 0.05), 60);
+                setTimeout(() => this.playBeep(554, 0.15, 'sawtooth', 0.05), 120);
             },
 
             playGameOver(isVictory = false) {
+                this.stopBackgroundMusic();
                 if (isVictory) {
-                    // Upbeat retro beep victory jingle
                     this.playBeep(440, 0.1, 'square', 0.1);
                     setTimeout(() => this.playBeep(554, 0.1, 'square', 0.1), 100);
                     setTimeout(() => this.playBeep(659, 0.3, 'square', 0.1), 200);
                 } else {
-                    this.playBeep(220, 0.2, 'sawtooth', 0.15); // A3
-                    setTimeout(() => this.playBeep(165, 0.25, 'sawtooth', 0.15), 150); // E3
-                    setTimeout(() => this.playBeep(110, 0.4, 'sawtooth', 0.2), 300); // A2
+                    this.playBeep(220, 0.2, 'sawtooth', 0.15);
+                    setTimeout(() => this.playBeep(165, 0.25, 'sawtooth', 0.15), 150);
+                    setTimeout(() => this.playBeep(110, 0.4, 'sawtooth', 0.2), 300);
                 }
             }
         };
@@ -534,7 +639,11 @@
                 UI.audioIcon.innerHTML = `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />`;
                 UI.audioToggleBtn.classList.remove('text-slate-600');
                 UI.audioToggleBtn.classList.add('text-slate-400');
+                if (gameStatus === 'PLAYING') {
+                    AudioEngine.startBackgroundMusic();
+                }
             } else {
+                AudioEngine.stopBackgroundMusic();
                 UI.audioIcon.innerHTML = `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2" />`;
                 UI.audioToggleBtn.classList.add('text-slate-600');
                 UI.audioToggleBtn.classList.remove('text-slate-400');
@@ -762,6 +871,7 @@
             UI.boardContainer.style.boxShadow = `0 0 25px ${paletteData.head}40`;
 
             AudioEngine.playPowerup();
+            AudioEngine.startBackgroundMusic();
         }
 
         function isCellBlockedForSpawn(x, y) {
@@ -1292,14 +1402,14 @@
             if (gameStatus === 'PLAYING') {
                 gameStatus = 'PAUSED';
                 UI.pauseOverlay.classList.remove('hidden');
-                // Switch button to Play icon
                 UI.pauseIcon.innerHTML = `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />`;
+                AudioEngine.pauseBackgroundMusic();
                 AudioEngine.playBeep(220, 0.15, 'sawtooth', 0.05);
             } else if (gameStatus === 'PAUSED') {
                 gameStatus = 'PLAYING';
                 UI.pauseOverlay.classList.add('hidden');
-                // Switch button back to Pause icon
                 UI.pauseIcon.innerHTML = `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z" />`;
+                AudioEngine.resumeBackgroundMusic();
                 AudioEngine.playBeep(330, 0.1, 'sawtooth', 0.05);
             }
         }
@@ -1732,6 +1842,7 @@
 
         UI.menuReturnBtn.addEventListener('click', () => {
             gameStatus = 'MENU';
+            AudioEngine.stopBackgroundMusic();
             UI.gameOverPanel.classList.add('hidden');
             UI.menuPanel.classList.remove('hidden');
         });
