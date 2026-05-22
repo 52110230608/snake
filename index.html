@@ -123,8 +123,8 @@
                         </div>
                     </div>
 
-                    <!-- Mode Selection -->
-                    <div>
+                    <!-- Mode Selection (hidden in solo — classic only) -->
+                    <div id="gameModeSection">
                         <span class="text-xs font-bold text-slate-500 tracking-wider block mb-1.5 uppercase">Game Mode</span>
                         <div class="grid grid-cols-3 gap-2">
                             <button onclick="setMode('classic')" id="mode-classic" class="py-2 text-xs rounded-lg border border-emerald-500/50 bg-emerald-950/30 text-emerald-400 font-bold tracking-wider hover:bg-emerald-950/50 transition">
@@ -443,8 +443,12 @@
             pauseToggleBtn: document.getElementById('pauseToggleBtn'),
             pauseIcon: document.getElementById('pauseIcon'),
             cpuDifficultySection: document.getElementById('cpuDifficultySection'),
-            soloPaceSection: document.getElementById('soloPaceSection')
+            soloPaceSection: document.getElementById('soloPaceSection'),
+            gameModeSection: document.getElementById('gameModeSection')
         };
+
+        const FOOD_COUNT_SOLO = 4;
+        const FOOD_COUNT_CPU = 2;
 
         const PACE_SETTINGS = {
             relaxed:    { baseStepTime: 170, ramp: 0.10 },
@@ -470,7 +474,7 @@
         let score = 0;
         let foodEatenCount = 0;
         let gameStatus = 'MENU'; // MENU, PLAYING, PAUSED, OVER
-        let food = { x: -1, y: -1, type: 'standard' }; // food types: standard, bonus
+        let foods = []; // { x, y, type: 'standard'|'bonus' }[]
         let powerup = null; // null or {x, y, type: 'ghost'|'freeze'|'double'|'shrink'}
         let powerupTimer = 0; // Frames or milliseconds left
         let activePower = null; // current active status
@@ -591,11 +595,17 @@
                 UI.hudHighScoreLabel.textContent = "CPU";
                 UI.cpuDifficultySection.classList.remove('hidden');
                 UI.soloPaceSection.classList.add('hidden');
+                UI.gameModeSection.classList.remove('hidden');
             } else {
                 UI.hudScoreLabel.textContent = "SCORE";
                 UI.hudHighScoreLabel.textContent = "HIGH SCORE";
                 UI.cpuDifficultySection.classList.add('hidden');
                 UI.soloPaceSection.classList.remove('hidden');
+                UI.gameModeSection.classList.add('hidden');
+                currentMode = 'classic';
+                activePower = null;
+                powerup = null;
+                powerupTimer = 0;
             }
 
             AudioEngine.playBeep(220, 0.05, 'triangle', 0.03);
@@ -727,8 +737,15 @@
                 generateLabyrinthObstacles();
             }
 
-            // Spawn Food Matrix
-            spawnFoodItem();
+            // Solo: classic only, no power-ups; fill board with multiple coins
+            if (opponentType === 'solo') {
+                currentMode = 'classic';
+                activePower = null;
+                powerup = null;
+                powerupTimer = 0;
+            }
+            foods = [];
+            ensureFoodCount();
 
             // Fire engine up
             gameStatus = 'PLAYING';
@@ -853,35 +870,52 @@
             }
         }
 
-        function spawnFoodItem() {
-            let valid = false;
-            let fx, fy;
+        function getTargetFoodCount() {
+            return opponentType === 'solo' ? FOOD_COUNT_SOLO : FOOD_COUNT_CPU;
+        }
+
+        function isFoodSpawnCellClear(x, y) {
+            if (snake.some(segment => segment.x === x && segment.y === y)) return false;
+            if (cpuActive && cpuSnake.some(segment => segment.x === x && segment.y === y)) return false;
+            if (obstacles.some(wall => wall.x === x && wall.y === y)) return false;
+            if (foods.some(f => f.x === x && f.y === y)) return false;
+            if (powerup && powerup.x === x && powerup.y === y) return false;
+            return true;
+        }
+
+        function trySpawnOneFood() {
             let attempts = 0;
-
-            while (!valid && attempts < 100) {
+            while (attempts < 100) {
                 attempts++;
-                fx = Math.floor(Math.random() * gridTilesCount);
-                fy = Math.floor(Math.random() * gridTilesCount);
-
-                // Collision logic checks
-                const collidesWithSnake = snake.some(segment => segment.x === fx && segment.y === fy);
-                const collidesWithCpu = cpuActive && cpuSnake.some(segment => segment.x === fx && segment.y === fy);
-                const collidesWithObstacle = obstacles.some(wall => wall.x === fx && wall.y === fy);
-
-                if (!collidesWithSnake && !collidesWithCpu && !collidesWithObstacle) {
-                    valid = true;
+                const fx = Math.floor(Math.random() * gridTilesCount);
+                const fy = Math.floor(Math.random() * gridTilesCount);
+                if (isFoodSpawnCellClear(fx, fy)) {
+                    return {
+                        x: fx,
+                        y: fy,
+                        type: Math.random() < 0.15 ? 'bonus' : 'standard'
+                    };
                 }
             }
+            return null;
+        }
 
-            // 15% chance to spawn special golden food matrix
-            food = {
-                x: fx,
-                y: fy,
-                type: Math.random() < 0.15 ? 'bonus' : 'standard'
-            };
+        function ensureFoodCount() {
+            const target = getTargetFoodCount();
+            while (foods.length < target) {
+                const item = trySpawnOneFood();
+                if (!item) break;
+                foods.push(item);
+            }
+        }
+
+        function getNearestFoodDistance(x, y) {
+            if (foods.length === 0) return 9999;
+            return Math.min(...foods.map(f => Math.abs(x - f.x) + Math.abs(y - f.y)));
         }
 
         function spawnPowerupItem() {
+            if (opponentType === 'solo') return;
             // 25% chance of spawning a powerup if there isn't one on grid and none is active
             if (powerup || activePower) return;
             if (Math.random() > 0.3) return;
@@ -896,7 +930,7 @@
                 const collidesSnake = snake.some(seg => seg.x === px && seg.y === py);
                 const collidesCpu = cpuActive && cpuSnake.some(seg => seg.x === px && seg.y === py);
                 const collidesObstacle = obstacles.some(wall => wall.x === px && wall.y === py);
-                const collidesFood = (food.x === px && food.y === py);
+                const collidesFood = foods.some(f => f.x === px && f.y === py);
 
                 if (!collidesSnake && !collidesCpu && !collidesObstacle && !collidesFood) {
                     valid = true;
@@ -971,8 +1005,7 @@
                 }
 
                 if (!isDeadly) {
-                    // Calculate Manhattan distance factor to the food matrix
-                    const distToFood = Math.abs(nextX - food.x) + Math.abs(nextY - food.y);
+                    const distToFood = getNearestFoodDistance(nextX, nextY);
                     
                     // Slightly value powerups too if they exist nearby
                     let bias = 0;
@@ -1100,8 +1133,10 @@
             snake.unshift(head);
 
             // Eat detection for Player
-            if (head.x === food.x && head.y === food.y) {
-                const points = (food.type === 'bonus') ? 30 : 10;
+            const playerEatIndex = foods.findIndex(f => f.x === head.x && f.y === head.y);
+            if (playerEatIndex !== -1) {
+                const eaten = foods[playerEatIndex];
+                const points = (eaten.type === 'bonus') ? 30 : 10;
                 const doubleMult = (activePower === 'double') ? 2 : 1;
                 const now = performance.now();
 
@@ -1125,7 +1160,7 @@
                     AudioEngine.playBeep(comboFreq, 0.08, 'square', 0.06);
                 }
 
-                createExplosion(food.x, food.y, (food.type === 'bonus') ? '#f59e0b' : Palettes[currentPalette].particle);
+                createExplosion(eaten.x, eaten.y, (eaten.type === 'bonus') ? '#f59e0b' : Palettes[currentPalette].particle);
                 AudioEngine.playEat();
 
                 if (opponentType === 'solo' && score > highScore) {
@@ -1133,9 +1168,10 @@
                     localStorage.setItem('snake_odyssey_highscore', highScore);
                 }
 
+                foods.splice(playerEatIndex, 1);
                 updateScoreDisplays();
                 syncHudBuffer();
-                spawnFoodItem();
+                ensureFoodCount();
                 spawnPowerupItem();
             } else {
                 snake.pop();
@@ -1145,24 +1181,26 @@
             if (cpuActive) {
                 cpuSnake.unshift(cpuHead);
 
-                // Eat detection for CPU
-                if (cpuHead.x === food.x && cpuHead.y === food.y) {
-                    const points = (food.type === 'bonus') ? 30 : 10;
-                    
+                const cpuEatIndex = foods.findIndex(f => f.x === cpuHead.x && f.y === cpuHead.y);
+                if (cpuEatIndex !== -1) {
+                    const eaten = foods[cpuEatIndex];
+                    const points = (eaten.type === 'bonus') ? 30 : 10;
+
                     cpuScore += points;
-                    createExplosion(food.x, food.y, getCpuPalette().particle);
+                    createExplosion(eaten.x, eaten.y, getCpuPalette().particle);
                     AudioEngine.playEat();
 
+                    foods.splice(cpuEatIndex, 1);
                     updateScoreDisplays();
-                    spawnFoodItem();
+                    ensureFoodCount();
                     spawnPowerupItem();
                 } else {
                     cpuSnake.pop();
                 }
             }
 
-            // Check Player Powerup Pickups
-            if (powerup && head.x === powerup.x && head.y === powerup.y) {
+            // Check Player Powerup Pickups (CPU mode only)
+            if (opponentType !== 'solo' && powerup && head.x === powerup.x && head.y === powerup.y) {
                 const pickedType = powerup.type;
                 createExplosion(powerup.x, powerup.y, getPowerupColor(pickedType));
                 AudioEngine.playPowerup();
@@ -1480,43 +1518,40 @@
                 ctx.restore();
             }
 
-            // Draw Target Coins Matrix (Updated from simple foods)
-            ctx.save();
-            const fx = food.x * tileWidth + tileWidth / 2;
-            const fy = food.y * tileWidth + tileWidth / 2;
-            const coinRadius = tileWidth / 2 - 2;
+            // Draw all coins on the board
+            foods.forEach(coin => {
+                ctx.save();
+                const fx = coin.x * tileWidth + tileWidth / 2;
+                const fy = coin.y * tileWidth + tileWidth / 2;
+                const coinRadius = tileWidth / 2 - 2;
 
-            if (food.type === 'bonus') {
-                ctx.fillStyle = '#fbbf24'; // Golden Yellow fill
-                ctx.strokeStyle = '#d97706'; // Dark Amber rim
-                ctx.shadowColor = '#fbbf24';
-            } else {
-                ctx.fillStyle = '#f472b6'; // Cyberpunk Neon Pink fill
-                ctx.strokeStyle = '#db2777'; // Dark Magenta/Pink rim
-                ctx.shadowColor = '#f472b6';
-            }
-            ctx.shadowBlur = 12;
+                if (coin.type === 'bonus') {
+                    ctx.fillStyle = '#fbbf24';
+                    ctx.strokeStyle = '#d97706';
+                    ctx.shadowColor = '#fbbf24';
+                } else {
+                    ctx.fillStyle = '#f472b6';
+                    ctx.strokeStyle = '#db2777';
+                    ctx.shadowColor = '#f472b6';
+                }
+                ctx.shadowBlur = 12;
 
-            // Draw coin outer circle body
-            ctx.beginPath();
-            ctx.arc(fx, fy, coinRadius, 0, Math.PI * 2);
-            ctx.fill();
-            
-            // Draw coin outer highlighted rim line
-            ctx.lineWidth = 1.5;
-            ctx.stroke();
+                ctx.beginPath();
+                ctx.arc(fx, fy, coinRadius, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.lineWidth = 1.5;
+                ctx.stroke();
 
-            // Draw coin inner detail (nested design ring)
-            ctx.shadowBlur = 0; // Disable shadow for inner detail crispness
-            ctx.strokeStyle = food.type === 'bonus' ? '#78350f' : '#831843'; // deep contrast outline
-            ctx.beginPath();
-            ctx.arc(fx, fy, coinRadius * 0.5, 0, Math.PI * 2);
-            ctx.stroke();
+                ctx.shadowBlur = 0;
+                ctx.strokeStyle = coin.type === 'bonus' ? '#78350f' : '#831843';
+                ctx.beginPath();
+                ctx.arc(fx, fy, coinRadius * 0.5, 0, Math.PI * 2);
+                ctx.stroke();
 
-            // Draw vertical coin core stripe (resembles a classic currency pattern)
-            ctx.fillStyle = food.type === 'bonus' ? '#78350f' : '#831843';
-            ctx.fillRect(fx - 1.5, fy - coinRadius * 0.35, 3, coinRadius * 0.7);
-            ctx.restore();
+                ctx.fillStyle = coin.type === 'bonus' ? '#78350f' : '#831843';
+                ctx.fillRect(fx - 1.5, fy - coinRadius * 0.35, 3, coinRadius * 0.7);
+                ctx.restore();
+            });
 
             // Draw Dynamic Active Player Snake
             const palette = Palettes[currentPalette];
@@ -1722,6 +1757,9 @@
         // Initialize menu selections from persisted settings
         setSoloPace(soloPace);
         setOpponent(opponentType);
+        if (opponentType === 'solo') {
+            UI.gameModeSection.classList.add('hidden');
+        }
 
         // Launch Frame Process Lifecycle
         window.requestAnimationFrame(frameTick);
