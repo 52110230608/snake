@@ -94,12 +94,15 @@
                     <!-- Opponent Selection -->
                     <div>
                         <span class="text-xs font-bold text-slate-500 tracking-wider block mb-1.5 uppercase">Opponent Matchup</span>
-                        <div class="grid grid-cols-2 gap-2">
+                        <div class="grid grid-cols-3 gap-2">
                             <button onclick="setOpponent('solo')" id="opp-solo" class="py-2 text-xs rounded-lg border border-emerald-500/50 bg-emerald-950/30 text-emerald-400 font-bold tracking-wider hover:bg-emerald-950/50 transition">
-                                SOLO PLAY
+                                SOLO
                             </button>
                             <button onclick="setOpponent('cpu')" id="opp-cpu" class="py-2 text-xs rounded-lg border border-slate-800 bg-slate-900 text-slate-400 font-bold tracking-wider hover:bg-slate-850 transition">
-                                VS RIVAL CPU
+                                VS CPU
+                            </button>
+                            <button onclick="setOpponent('local')" id="opp-local" class="py-2 text-xs rounded-lg border border-slate-800 bg-slate-900 text-slate-400 font-bold tracking-wider hover:bg-slate-850 transition">
+                                2 PLAYER
                             </button>
                         </div>
                     </div>
@@ -208,7 +211,7 @@
                         <span id="endScore" class="orbitron text-lg font-bold text-emerald-400">0000</span>
                     </div>
                     <div id="cpuEndScoreWrapper" class="flex justify-between items-center hidden">
-                        <span class="text-xs text-slate-500 font-bold tracking-wider">CPU RIVAL SCORE</span>
+                        <span id="endCpuScoreLabel" class="text-xs text-slate-500 font-bold tracking-wider">RIVAL SCORE</span>
                         <span id="endCpuScore" class="orbitron text-lg font-bold text-pink-400">0000</span>
                     </div>
                     <div id="highScoreEndWrapper" class="flex justify-between items-center">
@@ -318,6 +321,10 @@
                 <div>
                     <h4 class="font-bold text-emerald-300 mb-1 uppercase">VS Rival CPU Mode</h4>
                     <p>Compete against an intelligent opponent on the same board! Race to collect coins first, avoid crashing into the CPU's tail, and secure points to win the match. You can set the CPU intensity to Easy, Medium, Hard, or Ultra!</p>
+                </div>
+                <div>
+                    <h4 class="font-bold text-emerald-300 mb-1 uppercase">2 Player Local</h4>
+                    <p><span class="text-emerald-400 font-bold">Player 1</span> uses <span class="text-amber-400 font-bold">W-A-S-D</span>. <span class="text-cyan-400 font-bold">Player 2</span> uses <span class="text-amber-400 font-bold">ARROW KEYS</span>. Race for coins on the same board — highest score wins if both crash!</p>
                 </div>
                 <div>
                     <h4 class="font-bold text-emerald-300 mb-1 uppercase">Solo Pace</h4>
@@ -566,7 +573,7 @@
         // Current Config Settings
         let currentMode = 'classic';
         let currentPalette = 'emerald';
-        let opponentType = 'solo'; // solo, cpu
+        let opponentType = 'solo'; // solo, cpu, local
         let cpuDifficulty = 'medium'; // easy, medium, hard, challenging (ultra)
         let soloPace = localStorage.getItem('snake_odyssey_pace') || 'standard';
         if (!PACE_SETTINGS[soloPace]) soloPace = 'standard';
@@ -605,8 +612,16 @@
         // Screenshake state
         let screenShakeValue = 0;
 
+        function isVersusMode() {
+            return opponentType === 'cpu' || opponentType === 'local';
+        }
+
+        function isLocal2P() {
+            return opponentType === 'local';
+        }
+
         function getPaceSettings() {
-            if (opponentType === 'cpu') {
+            if (isVersusMode()) {
                 return PACE_SETTINGS.standard;
             }
             return PACE_SETTINGS[soloPace] || PACE_SETTINGS.standard;
@@ -689,7 +704,7 @@
         // --- Menu Config Setters ---
         window.setOpponent = function(type) {
             opponentType = type;
-            ['solo', 'cpu'].forEach(t => {
+            ['solo', 'cpu', 'local'].forEach(t => {
                 const btn = document.getElementById(`opp-${t}`);
                 if (t === type) {
                     btn.className = "py-2 text-xs rounded-lg border border-emerald-500/50 bg-emerald-950/30 text-emerald-400 font-bold tracking-wider hover:bg-emerald-950/50 transition";
@@ -697,14 +712,20 @@
                     btn.className = "py-2 text-xs rounded-lg border border-slate-800 bg-slate-900 text-slate-400 font-bold tracking-wider hover:bg-slate-850 transition";
                 }
             });
-            
-            // Adjust HUD Labels based on mode selection
+
             if (type === 'cpu') {
                 UI.hudScoreLabel.textContent = "YOU";
                 UI.hudHighScoreLabel.textContent = "CPU";
                 UI.cpuDifficultySection.classList.remove('hidden');
                 UI.soloPaceSection.classList.add('hidden');
-                UI.gameModeSection.classList.remove('hidden');
+            } else if (type === 'local') {
+                UI.hudScoreLabel.textContent = "P1 WASD";
+                UI.hudHighScoreLabel.textContent = "P2 ARROWS";
+                UI.cpuDifficultySection.classList.add('hidden');
+                UI.soloPaceSection.classList.add('hidden');
+                activePower = null;
+                powerup = null;
+                powerupTimer = 0;
             } else {
                 UI.hudScoreLabel.textContent = "SCORE";
                 UI.hudHighScoreLabel.textContent = "HIGH SCORE";
@@ -821,8 +842,8 @@
             direction = 'RIGHT';
             nextDirection = 'RIGHT';
 
-            // Set up CPU Competitor if enabled - Repositioned to scale with 30x30 grid
-            if (opponentType === 'cpu') {
+            // Second snake: CPU AI or local Player 2
+            if (isVersusMode()) {
                 cpuActive = true;
                 cpuScore = 0;
                 cpuSnake = [
@@ -844,11 +865,16 @@
                 generateLabyrinthObstacles();
             }
 
-            // Solo: no power-ups; fill board with multiple coins
-            if (opponentType === 'solo') {
+            // Solo / 2-player: no power-ups
+            if (opponentType === 'solo' || opponentType === 'local') {
                 activePower = null;
                 powerup = null;
                 powerupTimer = 0;
+            }
+            if (isLocal2P()) {
+                updatePowerHUD('NONE', 0);
+                UI.hudActivePower.textContent = '2P LOCAL';
+                UI.hudActivePower.className = "orbitron text-xs md:text-sm font-bold text-cyan-400 uppercase";
             }
             foods = [];
             ensureFoodCount();
@@ -978,7 +1004,8 @@
         }
 
         function getTargetFoodCount() {
-            return opponentType === 'solo' ? FOOD_COUNT_SOLO : FOOD_COUNT_CPU;
+            if (opponentType === 'solo') return FOOD_COUNT_SOLO;
+            return FOOD_COUNT_CPU;
         }
 
         function isFoodSpawnCellClear(x, y) {
@@ -1022,7 +1049,7 @@
         }
 
         function spawnPowerupItem() {
-            if (opponentType === 'solo') return;
+            if (opponentType !== 'cpu') return;
             // 25% chance of spawning a powerup if there isn't one on grid and none is active
             if (powerup || activePower) return;
             if (Math.random() > 0.3) return;
@@ -1151,8 +1178,7 @@
         }
 
         function executeMovementTick() {
-            // Update CPU Pathing vector directly before tick calculation
-            if (cpuActive) {
+            if (opponentType === 'cpu') {
                 calculateCpuAiMove();
             }
 
@@ -1239,33 +1265,37 @@
             // --- Append Player Head ---
             snake.unshift(head);
 
-            // Eat detection for Player
+            // Eat detection for Player 1
             const playerEatIndex = foods.findIndex(f => f.x === head.x && f.y === head.y);
             if (playerEatIndex !== -1) {
                 const eaten = foods[playerEatIndex];
                 const points = (eaten.type === 'bonus') ? 30 : 10;
                 const doubleMult = (activePower === 'double') ? 2 : 1;
                 const now = performance.now();
+                let earned = points * doubleMult;
 
-                if (lastEatTimestamp > 0 && (now - lastEatTimestamp) <= COMBO_WINDOW_MS) {
-                    comboCount++;
-                } else {
-                    comboCount = 1;
+                if (opponentType === 'solo') {
+                    if (lastEatTimestamp > 0 && (now - lastEatTimestamp) <= COMBO_WINDOW_MS) {
+                        comboCount++;
+                    } else {
+                        comboCount = 1;
+                    }
+                    lastEatTimestamp = now;
+                    const comboMult = comboCount > 1
+                        ? Math.min(2, 1 + comboCount * COMBO_BONUS_PER_STACK)
+                        : 1;
+                    earned = Math.round(points * doubleMult * comboMult);
+
+                    if (comboCount > 1) {
+                        comboFlashText = `x${comboCount} COMBO`;
+                        comboFlashUntil = now + 500;
+                        const comboFreq = 440 + comboCount * 80;
+                        AudioEngine.playBeep(comboFreq, 0.08, 'square', 0.06);
+                    }
                 }
-                lastEatTimestamp = now;
 
-                const comboMult = comboCount > 1
-                    ? Math.min(2, 1 + comboCount * COMBO_BONUS_PER_STACK)
-                    : 1;
-                score += Math.round(points * doubleMult * comboMult);
+                score += Math.round(earned);
                 foodEatenCount++;
-
-                if (comboCount > 1) {
-                    comboFlashText = `x${comboCount} COMBO`;
-                    comboFlashUntil = now + 500;
-                    const comboFreq = 440 + comboCount * 80;
-                    AudioEngine.playBeep(comboFreq, 0.08, 'square', 0.06);
-                }
 
                 createExplosion(eaten.x, eaten.y, (eaten.type === 'bonus') ? '#f59e0b' : Palettes[currentPalette].particle);
                 AudioEngine.playEat();
@@ -1307,7 +1337,7 @@
             }
 
             // Check Player Powerup Pickups (CPU mode only)
-            if (opponentType !== 'solo' && powerup && head.x === powerup.x && head.y === powerup.y) {
+            if (opponentType === 'cpu' && powerup && head.x === powerup.x && head.y === powerup.y) {
                 const pickedType = powerup.type;
                 createExplosion(powerup.x, powerup.y, getPowerupColor(pickedType));
                 AudioEngine.playPowerup();
@@ -1339,7 +1369,7 @@
         }
 
         function updateScoreDisplays() {
-            if (opponentType === 'cpu') {
+            if (isVersusMode()) {
                 UI.hudScore.textContent = String(score).padStart(3, '0');
                 UI.hudHighScore.textContent = String(cpuScore).padStart(3, '0');
             } else {
@@ -1377,6 +1407,13 @@
 
         function syncHudBuffer() {
             if (activePower) return;
+
+            if (isLocal2P()) {
+                UI.hudActivePower.textContent = '2P LOCAL';
+                UI.hudActivePower.className = "orbitron text-xs md:text-sm font-bold text-cyan-400 uppercase";
+                UI.powerProgressBar.style.width = '0%';
+                return;
+            }
 
             if (comboCount > 1 && lastEatTimestamp > 0) {
                 const elapsed = performance.now() - lastEatTimestamp;
@@ -1421,11 +1458,11 @@
             // Set up scoreboard display elements based on matchup mode
             if (opponentType === 'cpu') {
                 UI.statScoreLabel.textContent = "YOUR SCORE";
+                document.getElementById('endCpuScoreLabel').textContent = "CPU RIVAL SCORE";
                 UI.cpuEndScoreWrapper.classList.remove('hidden');
-                UI.highScoreEndWrapper.classList.add('hidden'); // Hide Solo Highscore to clean screen space
+                UI.highScoreEndWrapper.classList.add('hidden');
                 UI.endCpuScore.textContent = String(cpuScore).padStart(4, '0');
 
-                // Determine Winner
                 let isPlayerVictory = false;
                 if (playerCrashed && !cpuCrashed) {
                     UI.gameOverTitle.textContent = "DEFEAT! YOU CRASHED";
@@ -1437,7 +1474,6 @@
                     UI.gameOverSub.textContent = "The CPU collided with an obstacle. You survive and win!";
                     isPlayerVictory = true;
                 } else {
-                    // Head-on collision or both crashed at once, evaluate scores
                     if (score > cpuScore) {
                         UI.gameOverTitle.textContent = "VICTORY! HIGHER SCORE";
                         UI.gameOverTitle.className = "orbitron text-2xl md:text-3xl font-black text-emerald-400 tracking-wider mb-2 neon-text-green";
@@ -1454,6 +1490,41 @@
                     }
                 }
                 AudioEngine.playGameOver(isPlayerVictory);
+
+            } else if (opponentType === 'local') {
+                UI.statScoreLabel.textContent = "P1 WASD SCORE";
+                document.getElementById('endCpuScoreLabel').textContent = "P2 ARROWS SCORE";
+                UI.cpuEndScoreWrapper.classList.remove('hidden');
+                UI.highScoreEndWrapper.classList.add('hidden');
+                UI.endCpuScore.textContent = String(cpuScore).padStart(4, '0');
+
+                let p1Wins = false;
+                if (playerCrashed && !cpuCrashed) {
+                    UI.gameOverTitle.textContent = "PLAYER 2 WINS!";
+                    UI.gameOverTitle.className = "orbitron text-2xl md:text-3xl font-black text-cyan-400 tracking-wider mb-2 neon-text-green";
+                    UI.gameOverSub.textContent = "Player 1 crashed — Player 2 survives on the grid";
+                } else if (cpuCrashed && !playerCrashed) {
+                    UI.gameOverTitle.textContent = "PLAYER 1 WINS!";
+                    UI.gameOverTitle.className = "orbitron text-2xl md:text-3xl font-black text-emerald-400 tracking-wider mb-2 neon-text-green";
+                    UI.gameOverSub.textContent = "Player 2 crashed — Player 1 survives on the grid";
+                    p1Wins = true;
+                } else {
+                    if (score > cpuScore) {
+                        UI.gameOverTitle.textContent = "PLAYER 1 WINS!";
+                        UI.gameOverTitle.className = "orbitron text-2xl md:text-3xl font-black text-emerald-400 tracking-wider mb-2 neon-text-green";
+                        UI.gameOverSub.textContent = "Both crashed — Player 1 collected more coins";
+                        p1Wins = true;
+                    } else if (cpuScore > score) {
+                        UI.gameOverTitle.textContent = "PLAYER 2 WINS!";
+                        UI.gameOverTitle.className = "orbitron text-2xl md:text-3xl font-black text-cyan-400 tracking-wider mb-2 neon-text-green";
+                        UI.gameOverSub.textContent = "Both crashed — Player 2 collected more coins";
+                    } else {
+                        UI.gameOverTitle.textContent = "DRAW!";
+                        UI.gameOverTitle.className = "orbitron text-2xl md:text-3xl font-black text-amber-400 tracking-wider mb-2";
+                        UI.gameOverSub.textContent = "Identical scores after a simultaneous crash";
+                    }
+                }
+                AudioEngine.playGameOver(p1Wins);
 
             } else {
                 // Solo Mode gameover text setups
@@ -1476,20 +1547,22 @@
         }
 
         // --- Keyboard Vector Input Map ---
-        const directionalMap = {
-            'ArrowUp': 'UP', 'KeyW': 'UP',
-            'ArrowDown': 'DOWN', 'KeyS': 'DOWN',
-            'ArrowLeft': 'LEFT', 'KeyA': 'LEFT',
-            'ArrowRight': 'RIGHT', 'KeyD': 'RIGHT'
+        const p1DirectionalMap = {
+            'KeyW': 'UP', 'KeyS': 'DOWN', 'KeyA': 'LEFT', 'KeyD': 'RIGHT'
         };
+        const p2DirectionalMap = {
+            'ArrowUp': 'UP', 'ArrowDown': 'DOWN', 'ArrowLeft': 'LEFT', 'ArrowRight': 'RIGHT'
+        };
+        const directionalMap = { ...p1DirectionalMap, ...p2DirectionalMap };
 
         window.addEventListener('keydown', e => {
-            // Block system scrolling when in action
             if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.code)) {
                 e.preventDefault();
             }
+            if (['KeyW', 'KeyA', 'KeyS', 'KeyD'].includes(e.code) && isLocal2P()) {
+                e.preventDefault();
+            }
 
-            // Universal Pause Switch Handlers
             if (e.code === 'Escape' || e.code === 'KeyP') {
                 if (gameStatus === 'PLAYING' || gameStatus === 'PAUSED') {
                     togglePause();
@@ -1497,7 +1570,6 @@
                 return;
             }
 
-            // Restart shortcut when viewing over game
             if (e.code === 'Space' || e.code === 'Enter') {
                 if (gameStatus === 'MENU') {
                     initNewGame();
@@ -1507,22 +1579,40 @@
                 return;
             }
 
+            if (isLocal2P()) {
+                if (p1DirectionalMap[e.code]) {
+                    handleDirectionInput(p1DirectionalMap[e.code], 1);
+                    return;
+                }
+                if (p2DirectionalMap[e.code]) {
+                    handleDirectionInput(p2DirectionalMap[e.code], 2);
+                    return;
+                }
+                return;
+            }
+
             const incomingDir = directionalMap[e.code];
             if (incomingDir) {
-                handleDirectionInput(incomingDir);
+                handleDirectionInput(incomingDir, 1);
             }
         });
 
-        function handleDirectionInput(incomingDir) {
+        function handleDirectionInput(incomingDir, player = 1) {
             if (gameStatus !== 'PLAYING') return;
 
-            // Anti-reverse direction lockouts
-            if (incomingDir === 'UP' && direction === 'DOWN') return;
-            if (incomingDir === 'DOWN' && direction === 'UP') return;
-            if (incomingDir === 'LEFT' && direction === 'RIGHT') return;
-            if (incomingDir === 'RIGHT' && direction === 'LEFT') return;
-
-            nextDirection = incomingDir;
+            if (player === 1) {
+                if (incomingDir === 'UP' && direction === 'DOWN') return;
+                if (incomingDir === 'DOWN' && direction === 'UP') return;
+                if (incomingDir === 'LEFT' && direction === 'RIGHT') return;
+                if (incomingDir === 'RIGHT' && direction === 'LEFT') return;
+                nextDirection = incomingDir;
+            } else {
+                if (incomingDir === 'UP' && cpuDirection === 'DOWN') return;
+                if (incomingDir === 'DOWN' && cpuDirection === 'UP') return;
+                if (incomingDir === 'LEFT' && cpuDirection === 'RIGHT') return;
+                if (incomingDir === 'RIGHT' && cpuDirection === 'LEFT') return;
+                cpuNextDirection = incomingDir;
+            }
         }
 
         // --- Touch Swipe Detection Implementation ---
