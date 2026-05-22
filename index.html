@@ -1,0 +1,1730 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Retro Neon Snake Odyssey</title>
+    <!-- Tailwind CSS for high fidelity layout & design -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&display=swap');
+        
+        body {
+            font-family: 'Share Tech Mono', monospace;
+            background-color: #030712;
+            touch-action: none; /* Disable default scrolling/gestures on mobile */
+        }
+        
+        .orbitron {
+            font-family: 'Orbitron', sans-serif;
+        }
+
+        /* Neon Glow Effects */
+        .neon-border-green {
+            box-shadow: 0 0 15px rgba(16, 185, 129, 0.4), inset 0 0 15px rgba(16, 185, 129, 0.2);
+        }
+        
+        .neon-text-green {
+            text-shadow: 0 0 10px rgba(16, 185, 129, 0.6);
+        }
+
+        .neon-glow-btn {
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .neon-glow-btn:hover {
+            box-shadow: 0 0 20px var(--glow-color), 0 0 40px var(--glow-color);
+            transform: translateY(-2px);
+        }
+
+        /* Hide Scrollbars */
+        ::-webkit-scrollbar {
+            display: none;
+        }
+    </style>
+</head>
+<body class="flex flex-col items-center justify-between min-h-screen text-slate-100 p-2 md:p-4 overflow-hidden select-none">
+
+    <!-- Header Section -->
+    <header class="w-full max-w-2xl flex items-center justify-between mb-2">
+        <div class="flex items-center space-x-2">
+            <span class="w-3 h-3 rounded-full bg-emerald-500 animate-pulse"></span>
+            <h1 class="orbitron text-xl md:text-2xl font-black tracking-widest bg-clip-text text-transparent bg-gradient-to-r from-emerald-400 to-cyan-400">
+                SNAKE.IO
+            </h1>
+        </div>
+        <div class="flex items-center space-x-3">
+            <!-- Dedicated Pause Toggle Button -->
+            <button id="pauseToggleBtn" class="p-2 rounded-lg bg-slate-900 border border-slate-800 hover:bg-slate-800 transition text-slate-400 hover:text-amber-400">
+                <svg id="pauseIcon" xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <!-- Default: Pause Circle Icon -->
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+            </button>
+            <button id="audioToggleBtn" class="p-2 rounded-lg bg-slate-900 border border-slate-800 hover:bg-slate-800 transition text-slate-400 hover:text-emerald-400">
+                <svg id="audioIcon" xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
+                </svg>
+            </button>
+            <button id="helpToggleBtn" class="p-2 rounded-lg bg-slate-900 border border-slate-800 hover:bg-slate-800 transition text-slate-400 hover:text-cyan-400">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+            </button>
+        </div>
+    </header>
+
+    <!-- Main Game Container -->
+    <main class="relative w-full max-w-2xl aspect-square flex flex-col justify-center items-center">
+        <!-- Canvas wrapper with dynamic styling -->
+        <div id="boardContainer" class="relative w-full aspect-square bg-slate-950 border-4 border-slate-800 rounded-2xl overflow-hidden shadow-2xl transition-all duration-300">
+            <canvas id="gameCanvas" class="w-full h-full block"></canvas>
+
+            <!-- Overlay Panels -->
+            <!-- 1. Start / Main Menu Menu -->
+            <div id="menuPanel" class="absolute inset-0 bg-slate-950/95 flex flex-col items-center justify-between p-6 z-10 overflow-y-auto">
+                <div class="text-center mt-2">
+                    <h2 class="orbitron text-3xl md:text-5xl font-black tracking-wider text-emerald-400 neon-text-green mb-1">
+                        NEON ODYSSEY
+                    </h2>
+                    <p class="text-[10px] md:text-xs text-slate-400 tracking-widest uppercase">Select your path to continue</p>
+                </div>
+
+                <!-- Customizations / Setup -->
+                <div class="w-full space-y-3 max-w-md">
+                    <!-- Opponent Selection -->
+                    <div>
+                        <span class="text-xs font-bold text-slate-500 tracking-wider block mb-1.5 uppercase">Opponent Matchup</span>
+                        <div class="grid grid-cols-2 gap-2">
+                            <button onclick="setOpponent('solo')" id="opp-solo" class="py-2 text-xs rounded-lg border border-emerald-500/50 bg-emerald-950/30 text-emerald-400 font-bold tracking-wider hover:bg-emerald-950/50 transition">
+                                SOLO PLAY
+                            </button>
+                            <button onclick="setOpponent('cpu')" id="opp-cpu" class="py-2 text-xs rounded-lg border border-slate-800 bg-slate-900 text-slate-400 font-bold tracking-wider hover:bg-slate-850 transition">
+                                VS RIVAL CPU
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- CPU Difficulty Selection (Contextual, hidden when solo) -->
+                    <div id="cpuDifficultySection" class="hidden transition-all duration-300">
+                        <span class="text-xs font-bold text-slate-500 tracking-wider block mb-1.5 uppercase">CPU INTENSITY</span>
+                        <div class="grid grid-cols-4 gap-2">
+                            <button onclick="setCpuDifficulty('easy')" id="diff-easy" class="py-2 text-xs rounded-lg border border-slate-800 bg-slate-900 text-slate-400 font-bold tracking-wider hover:bg-slate-850 transition">
+                                EASY
+                            </button>
+                            <button onclick="setCpuDifficulty('medium')" id="diff-medium" class="py-2 text-xs rounded-lg border border-emerald-500/50 bg-emerald-950/30 text-emerald-400 font-bold tracking-wider hover:bg-emerald-950/50 transition">
+                                MEDIUM
+                            </button>
+                            <button onclick="setCpuDifficulty('hard')" id="diff-hard" class="py-2 text-xs rounded-lg border border-slate-800 bg-slate-900 text-slate-400 font-bold tracking-wider hover:bg-slate-850 transition">
+                                HARD
+                            </button>
+                            <button onclick="setCpuDifficulty('challenging')" id="diff-challenging" class="py-2 text-xs rounded-lg border border-slate-800 bg-slate-900 text-slate-400 font-bold tracking-wider hover:bg-slate-850 transition">
+                                ULTRA
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Mode Selection -->
+                    <div>
+                        <span class="text-xs font-bold text-slate-500 tracking-wider block mb-1.5 uppercase">Game Mode</span>
+                        <div class="grid grid-cols-3 gap-2">
+                            <button onclick="setMode('classic')" id="mode-classic" class="py-2 text-xs rounded-lg border border-emerald-500/50 bg-emerald-950/30 text-emerald-400 font-bold tracking-wider hover:bg-emerald-950/50 transition">
+                                CLASSIC
+                            </button>
+                            <button onclick="setMode('portal')" id="mode-portal" class="py-2 text-xs rounded-lg border border-slate-800 bg-slate-900 text-slate-400 font-bold tracking-wider hover:bg-slate-850 transition">
+                                PORTAL
+                            </button>
+                            <button onclick="setMode('labyrinth')" id="mode-labyrinth" class="py-2 text-xs rounded-lg border border-slate-800 bg-slate-900 text-slate-400 font-bold tracking-wider hover:bg-slate-850 transition">
+                                LABYRINTH
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Solo Pace Selection (Contextual, hidden when vs CPU) -->
+                    <div id="soloPaceSection" class="transition-all duration-300">
+                        <span class="text-xs font-bold text-slate-500 tracking-wider block mb-1.5 uppercase">PACE</span>
+                        <div class="grid grid-cols-3 gap-2">
+                            <button onclick="setSoloPace('relaxed')" id="pace-relaxed" class="py-2 text-xs rounded-lg border border-slate-800 bg-slate-900 text-slate-400 font-bold tracking-wider hover:bg-slate-850 transition">
+                                RELAXED
+                            </button>
+                            <button onclick="setSoloPace('standard')" id="pace-standard" class="py-2 text-xs rounded-lg border border-emerald-500/50 bg-emerald-950/30 text-emerald-400 font-bold tracking-wider hover:bg-emerald-950/50 transition">
+                                STANDARD
+                            </button>
+                            <button onclick="setSoloPace('aggressive')" id="pace-aggressive" class="py-2 text-xs rounded-lg border border-slate-800 bg-slate-900 text-slate-400 font-bold tracking-wider hover:bg-slate-850 transition">
+                                AGGRESSIVE
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Skin Palette Selector -->
+                    <div>
+                        <span class="text-xs font-bold text-slate-500 tracking-wider block mb-1.5 uppercase">Snake Palette</span>
+                        <div class="grid grid-cols-4 gap-2">
+                            <button onclick="setPalette('emerald')" id="pal-emerald" class="p-2 rounded-lg border-2 border-emerald-400 bg-slate-900 flex justify-center items-center space-x-1">
+                                <span class="w-3 h-3 rounded-full bg-emerald-400"></span>
+                            </button>
+                            <button onclick="setPalette('cyber')" id="pal-cyber" class="p-2 rounded-lg border border-slate-800 bg-slate-900 flex justify-center items-center space-x-1">
+                                <span class="w-3 h-3 rounded-full bg-pink-500"></span>
+                            </button>
+                            <button onclick="setPalette('gold')" id="pal-gold" class="p-2 rounded-lg border border-slate-800 bg-slate-900 flex justify-center items-center space-x-1">
+                                <span class="w-3 h-3 rounded-full bg-amber-400"></span>
+                            </button>
+                            <button onclick="setPalette('ocean')" id="pal-ocean" class="p-2 rounded-lg border border-slate-800 bg-slate-900 flex justify-center items-center space-x-1">
+                                <span class="w-3 h-3 rounded-full bg-cyan-400"></span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Launch / Play CTA Button -->
+                <div class="w-full max-w-xs mb-2">
+                    <button id="startPlayBtn" style="--glow-color: rgba(16, 185, 129, 0.4);" class="neon-glow-btn w-full py-3 bg-emerald-500 text-slate-950 font-black rounded-xl tracking-widest text-lg orbitron">
+                        LAUNCH GAME
+                    </button>
+                </div>
+            </div>
+
+            <!-- 2. HUD (In-game overlays: Pause indicator) -->
+            <div id="pauseOverlay" class="absolute inset-0 bg-slate-950/80 hidden flex-col items-center justify-center p-6 z-10">
+                <h3 class="orbitron text-4xl font-bold text-amber-400 tracking-widest mb-2 animate-pulse">PAUSED</h3>
+                <p class="text-sm text-slate-400 mb-6">PRESS 'ESC' OR CLICK BUTTON TO RESUME</p>
+                <button onclick="togglePause()" class="px-6 py-2 bg-amber-500 text-slate-950 font-bold rounded-lg hover:bg-amber-400 transition">
+                    RESUME ENGINE
+                </button>
+            </div>
+
+            <!-- 3. Game Over Screen -->
+            <div id="gameOverPanel" class="absolute inset-0 bg-slate-950/95 hidden flex-col items-center justify-between p-6 z-10 overflow-y-auto">
+                <div class="text-center mt-4">
+                    <h2 id="gameOverTitle" class="orbitron text-2xl md:text-4xl font-black text-rose-500 tracking-wider mb-2">
+                        SYSTEM FAILURE
+                    </h2>
+                    <p id="gameOverSub" class="text-slate-400 text-xs tracking-widest uppercase">Snake collision or structural collapse detected</p>
+                </div>
+
+                <!-- Run Statistics -->
+                <div class="w-full max-w-xs bg-slate-900/50 border border-slate-850 p-4 rounded-xl space-y-3">
+                    <div class="flex justify-between items-center">
+                        <span id="statScoreLabel" class="text-xs text-slate-500 font-bold tracking-wider">YOUR SCORE</span>
+                        <span id="endScore" class="orbitron text-lg font-bold text-emerald-400">0000</span>
+                    </div>
+                    <div id="cpuEndScoreWrapper" class="flex justify-between items-center hidden">
+                        <span class="text-xs text-slate-500 font-bold tracking-wider">CPU RIVAL SCORE</span>
+                        <span id="endCpuScore" class="orbitron text-lg font-bold text-pink-400">0000</span>
+                    </div>
+                    <div id="highScoreEndWrapper" class="flex justify-between items-center">
+                        <span class="text-xs text-slate-500 font-bold tracking-wider">HIGH SCORE</span>
+                        <span id="endHighScore" class="orbitron text-lg font-bold text-cyan-400">0000</span>
+                    </div>
+                    <div class="flex justify-between items-center">
+                        <span class="text-xs text-slate-500 font-bold tracking-wider">COINS COLLECTED</span>
+                        <span id="endFoodEaten" class="orbitron text-lg font-bold text-purple-400">0</span>
+                    </div>
+                </div>
+
+                <!-- Retry action buttons -->
+                <div class="w-full max-w-xs space-y-2 mb-2">
+                    <button id="retryBtn" style="--glow-color: rgba(244, 63, 94, 0.4);" class="neon-glow-btn w-full py-3 bg-rose-500 text-slate-950 font-black rounded-xl tracking-widest text-lg orbitron">
+                        REDEPLOY ENGINE
+                    </button>
+                    <button id="menuReturnBtn" class="w-full py-2 bg-slate-900 text-slate-300 font-bold rounded-lg tracking-widest text-xs border border-slate-800 hover:bg-slate-800 transition">
+                        RETURN TO MENU
+                    </button>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- HUD Status Indicators (Bottom Dashboard Panel) -->
+    <section class="w-full max-w-2xl grid grid-cols-3 gap-2 my-2">
+        <div class="bg-slate-900/60 border border-slate-800 p-2 rounded-xl flex flex-col items-center justify-center">
+            <span id="hudScoreLabel" class="text-[10px] text-slate-500 font-bold uppercase tracking-wider">SCORE</span>
+            <span id="hudScore" class="orbitron text-lg md:text-xl font-bold text-emerald-400 neon-text-green">000</span>
+        </div>
+        <div class="bg-slate-900/60 border border-slate-800 p-2 rounded-xl flex flex-col items-center justify-center relative overflow-hidden">
+            <span class="text-[10px] text-slate-500 font-bold uppercase tracking-wider">ACTIVE BUFFER</span>
+            <span id="hudActivePower" class="orbitron text-xs md:text-sm font-bold text-slate-400 uppercase">NONE</span>
+            <!-- Progress bar overlay for powers -->
+            <div id="powerProgressBar" class="absolute bottom-0 left-0 h-1 bg-cyan-400 w-0 transition-all duration-100"></div>
+        </div>
+        <div class="bg-slate-900/60 border border-slate-800 p-2 rounded-xl flex flex-col items-center justify-center">
+            <span id="hudHighScoreLabel" class="text-[10px] text-slate-500 font-bold uppercase tracking-wider">HIGH SCORE</span>
+            <span id="hudHighScore" class="orbitron text-lg md:text-xl font-bold text-cyan-400">000</span>
+        </div>
+    </section>
+
+    <!-- Mobile Virtual Controls -->
+    <section id="mobileControls" class="w-full max-w-2xl flex flex-col items-center mb-1 select-none">
+        <div class="relative w-36 h-36">
+            <!-- Up -->
+            <button onclick="handleDirectionInput('UP')" class="absolute top-0 left-12 w-12 h-12 bg-slate-900/80 active:bg-slate-800 border border-slate-800 rounded-xl flex items-center justify-center active:scale-95 transition-all text-slate-400 active:text-emerald-400">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 15l7-7 7 7" />
+                </svg>
+            </button>
+            <!-- Left -->
+            <button onclick="handleDirectionInput('LEFT')" class="absolute left-0 top-12 w-12 h-12 bg-slate-900/80 active:bg-slate-800 border border-slate-800 rounded-xl flex items-center justify-center active:scale-95 transition-all text-slate-400 active:text-emerald-400">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15 19l-7-7 7-7" />
+                </svg>
+            </button>
+            <!-- Center Switch (Pause) -->
+            <div onclick="togglePause()" class="absolute left-12 top-12 w-12 h-12 bg-slate-950 border border-slate-800 rounded-xl flex items-center justify-center cursor-pointer text-slate-600 hover:text-amber-500 transition">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M10 9v6m4-6v6" />
+                </svg>
+            </div>
+            <!-- Right -->
+            <button onclick="handleDirectionInput('RIGHT')" class="absolute right-0 top-12 w-12 h-12 bg-slate-900/80 active:bg-slate-800 border border-slate-800 rounded-xl flex items-center justify-center active:scale-95 transition-all text-slate-400 active:text-emerald-400">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 5l7 7-7 7" />
+                </svg>
+            </button>
+            <!-- Down -->
+            <button onclick="handleDirectionInput('DOWN')" class="absolute bottom-0 left-12 w-12 h-12 bg-slate-900/80 active:bg-slate-800 border border-slate-800 rounded-xl flex items-center justify-center active:scale-95 transition-all text-slate-400 active:text-emerald-400">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M19 9l-7 7-7-7" />
+                </svg>
+            </button>
+        </div>
+    </section>
+
+    <!-- Help Modal Panel -->
+    <div id="helpModal" class="fixed inset-0 bg-slate-950/90 hidden items-center justify-center p-4 z-50">
+        <div class="bg-slate-900 border border-slate-800 w-full max-w-sm rounded-2xl p-6 relative">
+            <button id="closeHelpBtn" class="absolute top-4 right-4 text-slate-500 hover:text-slate-200">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+            </button>
+            <h3 class="orbitron text-xl font-bold text-emerald-400 mb-4 border-b border-slate-800 pb-2">SYSTEM HANDBOOK</h3>
+            
+            <div class="space-y-4 text-xs text-slate-300 leading-relaxed">
+                <div>
+                    <h4 class="font-bold text-emerald-300 mb-1 uppercase">Movement Controls</h4>
+                    <p>Use Keyboard <span class="text-amber-400 font-bold">W-A-S-D</span>, <span class="text-amber-400 font-bold">ARROW KEYS</span>, or the interactive virtual d-pad on touch screens.</p>
+                </div>
+                <div>
+                    <h4 class="font-bold text-emerald-300 mb-1 uppercase">Dynamic Game Modes</h4>
+                    <ul class="list-disc pl-4 space-y-1">
+                        <li><b class="text-slate-100">Classic:</b> Keep strictly inside bounds. Any border collision is instant failure.</li>
+                        <li><b class="text-slate-100">Portal:</b> Borders seamlessly loop the snake around the screen.</li>
+                        <li><b class="text-slate-100">Labyrinth:</b> Procedurally generated walls each run — route carefully around shifting obstacles.</li>
+                    </ul>
+                </div>
+                <div>
+                    <h4 class="font-bold text-emerald-300 mb-1 uppercase">VS Rival CPU Mode</h4>
+                    <p>Compete against an intelligent opponent on the same board! Race to collect coins first, avoid crashing into the CPU's tail, and secure points to win the match. You can set the CPU intensity to Easy, Medium, Hard, or Ultra!</p>
+                </div>
+                <div>
+                    <h4 class="font-bold text-emerald-300 mb-1 uppercase">Solo Pace</h4>
+                    <p>Relaxed, Standard, or Aggressive sets base snake speed and how fast difficulty ramps as your score climbs.</p>
+                </div>
+                <div>
+                    <h4 class="font-bold text-emerald-300 mb-1 uppercase">Combo Streak</h4>
+                    <p>Eat coins within <span class="text-amber-400 font-bold">2.5 seconds</span> of the last bite to stack combo multipliers (up to 2x bonus points).</p>
+                </div>
+                <div>
+                    <h4 class="font-bold text-emerald-300 mb-1 uppercase">Buffered Nanites (Powerups)</h4>
+                    <ul class="list-disc pl-4 space-y-1">
+                        <li><b class="text-cyan-400">🛡️ GHOST (Blue):</b> Phase harmlessly through your own snake body segments.</li>
+                        <li><b class="text-amber-400">🐢 FREEZE (Yellow):</b> Dilates time, slowing your progression down for better execution.</li>
+                        <li><b class="text-fuchsia-400">✨ MULTIPLIER (Pink):</b> Activates Double points matrix multiplier for limited durations.</li>
+                        <li><b class="text-violet-400">📉 SHRINK (Violet):</b> Instantly trims up to 3 tail segments (minimum length 3).</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Script Game Engine Logic -->
+    <script>
+        // --- Web Audio Engine & Sound Synthesizer ---
+        const AudioEngine = {
+            ctx: null,
+            enabled: true,
+
+            init() {
+                if (this.ctx) return;
+                try {
+                    this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+                } catch(e) {
+                    console.warn("Web Audio API not supported", e);
+                }
+            },
+
+            playBeep(freq, duration, type = 'square', gainValue = 0.05) {
+                if (!this.enabled || !this.ctx) return;
+                try {
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    
+                    osc.type = type;
+                    osc.frequency.setValueAtTime(freq, this.ctx.currentTime);
+                    
+                    gain.gain.setValueAtTime(gainValue, this.ctx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.0001, this.ctx.currentTime + duration);
+                    
+                    osc.connect(gain);
+                    gain.connect(this.ctx.destination);
+                    
+                    osc.start();
+                    osc.stop(this.ctx.currentTime + duration);
+                } catch(e) { /* Fallback */ }
+            },
+
+            playEat() {
+                this.playBeep(523.25, 0.08, 'triangle', 0.1); // C5
+                setTimeout(() => this.playBeep(659.25, 0.08, 'triangle', 0.08), 50); // E5
+            },
+
+            playPowerup() {
+                this.playBeep(330, 0.1, 'sawtooth', 0.05); // E4
+                setTimeout(() => this.playBeep(440, 0.1, 'sawtooth', 0.05), 60); // A4
+                setTimeout(() => this.playBeep(554, 0.15, 'sawtooth', 0.05), 120); // C#5
+            },
+
+            playGameOver(isVictory = false) {
+                if (isVictory) {
+                    // Upbeat retro beep victory jingle
+                    this.playBeep(440, 0.1, 'square', 0.1);
+                    setTimeout(() => this.playBeep(554, 0.1, 'square', 0.1), 100);
+                    setTimeout(() => this.playBeep(659, 0.3, 'square', 0.1), 200);
+                } else {
+                    this.playBeep(220, 0.2, 'sawtooth', 0.15); // A3
+                    setTimeout(() => this.playBeep(165, 0.25, 'sawtooth', 0.15), 150); // E3
+                    setTimeout(() => this.playBeep(110, 0.4, 'sawtooth', 0.2), 300); // A2
+                }
+            }
+        };
+
+        // --- Customization Palettes ---
+        const Palettes = {
+            emerald: { head: '#10b981', body: '#059669', glow: '#34d399', particle: '#10b981' },
+            cyber:   { head: '#ec4899', body: '#db2777', glow: '#f472b6', particle: '#ec4899' },
+            gold:    { head: '#fbbf24', body: '#d97706', glow: '#fcd34d', particle: '#fbbf24' },
+            ocean:   { head: '#22d3ee', body: '#0891b2', glow: '#67e8f9', particle: '#22d3ee' }
+        };
+
+        // --- Core Engine Configuration & Parameters ---
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const gridTilesCount = 30; // Expanded grid scale to 30x30
+        let tileWidth = 0; // calculated dynamically on viewport resize
+
+        const UI = {
+            menuPanel: document.getElementById('menuPanel'),
+            pauseOverlay: document.getElementById('pauseOverlay'),
+            gameOverPanel: document.getElementById('gameOverPanel'),
+            gameOverTitle: document.getElementById('gameOverTitle'),
+            gameOverSub: document.getElementById('gameOverSub'),
+            boardContainer: document.getElementById('boardContainer'),
+            hudScoreLabel: document.getElementById('hudScoreLabel'),
+            hudScore: document.getElementById('hudScore'),
+            hudHighScoreLabel: document.getElementById('hudHighScoreLabel'),
+            hudHighScore: document.getElementById('hudHighScore'),
+            hudActivePower: document.getElementById('hudActivePower'),
+            powerProgressBar: document.getElementById('powerProgressBar'),
+            statScoreLabel: document.getElementById('statScoreLabel'),
+            endScore: document.getElementById('endScore'),
+            cpuEndScoreWrapper: document.getElementById('cpuEndScoreWrapper'),
+            endCpuScore: document.getElementById('endCpuScore'),
+            highScoreEndWrapper: document.getElementById('highScoreEndWrapper'),
+            endHighScore: document.getElementById('endHighScore'),
+            endFoodEaten: document.getElementById('endFoodEaten'),
+            startPlayBtn: document.getElementById('startPlayBtn'),
+            retryBtn: document.getElementById('retryBtn'),
+            menuReturnBtn: document.getElementById('menuReturnBtn'),
+            audioToggleBtn: document.getElementById('audioToggleBtn'),
+            audioIcon: document.getElementById('audioIcon'),
+            helpToggleBtn: document.getElementById('helpToggleBtn'),
+            closeHelpBtn: document.getElementById('closeHelpBtn'),
+            helpModal: document.getElementById('helpModal'),
+            mobileControls: document.getElementById('mobileControls'),
+            pauseToggleBtn: document.getElementById('pauseToggleBtn'),
+            pauseIcon: document.getElementById('pauseIcon'),
+            cpuDifficultySection: document.getElementById('cpuDifficultySection'),
+            soloPaceSection: document.getElementById('soloPaceSection')
+        };
+
+        const PACE_SETTINGS = {
+            relaxed:    { baseStepTime: 170, ramp: 0.10 },
+            standard:   { baseStepTime: 130, ramp: 0.15 },
+            aggressive: { baseStepTime: 95,  ramp: 0.20 }
+        };
+        const COMBO_WINDOW_MS = 2500;
+        const COMBO_BONUS_PER_STACK = 0.25;
+
+        // Current Config Settings
+        let currentMode = 'classic';
+        let currentPalette = 'emerald';
+        let opponentType = 'solo'; // solo, cpu
+        let cpuDifficulty = 'medium'; // easy, medium, hard, challenging (ultra)
+        let soloPace = localStorage.getItem('snake_odyssey_pace') || 'standard';
+        if (!PACE_SETTINGS[soloPace]) soloPace = 'standard';
+        let highScore = parseInt(localStorage.getItem('snake_odyssey_highscore')) || 0;
+
+        // Interactive Session Memory State
+        let snake = [];
+        let direction = 'RIGHT';
+        let nextDirection = 'RIGHT';
+        let score = 0;
+        let foodEatenCount = 0;
+        let gameStatus = 'MENU'; // MENU, PLAYING, PAUSED, OVER
+        let food = { x: -1, y: -1, type: 'standard' }; // food types: standard, bonus
+        let powerup = null; // null or {x, y, type: 'ghost'|'freeze'|'double'|'shrink'}
+        let powerupTimer = 0; // Frames or milliseconds left
+        let activePower = null; // current active status
+
+        let comboCount = 0;
+        let lastEatTimestamp = 0;
+        let comboFlashText = null;
+        let comboFlashUntil = 0;
+
+        // CPU Competitor State
+        let cpuSnake = [];
+        let cpuDirection = 'LEFT';
+        let cpuNextDirection = 'LEFT';
+        let cpuScore = 0;
+        let cpuActive = false;
+
+        let obstacles = []; // Used in Labyrinth mode
+        let particles = []; // Particle explosion pool
+
+        let lastFrameTime = 0;
+        let snakeMoveTimer = 0;
+
+        // Screenshake state
+        let screenShakeValue = 0;
+
+        function getPaceSettings() {
+            if (opponentType === 'cpu') {
+                return PACE_SETTINGS.standard;
+            }
+            return PACE_SETTINGS[soloPace] || PACE_SETTINGS.standard;
+        }
+
+        // --- Setup Window Adapters ---
+        function resizeGame() {
+            // Force square aspect
+            const boundingSize = UI.boardContainer.clientWidth;
+            canvas.width = boundingSize * window.devicePixelRatio;
+            canvas.height = boundingSize * window.devicePixelRatio;
+            ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+            tileWidth = boundingSize / gridTilesCount;
+        }
+        window.addEventListener('resize', resizeGame);
+        // Initial execution
+        resizeGame();
+
+        // Detect Touch Support to configure Mobile Controls visibility
+        const isTouchSupported = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+        if (!isTouchSupported) {
+            UI.mobileControls.classList.add('hidden');
+        }
+
+        // --- Sound System Initializer ---
+        UI.audioToggleBtn.addEventListener('click', () => {
+            AudioEngine.init();
+            AudioEngine.enabled = !AudioEngine.enabled;
+            if (AudioEngine.enabled) {
+                UI.audioIcon.innerHTML = `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />`;
+                UI.audioToggleBtn.classList.remove('text-slate-600');
+                UI.audioToggleBtn.classList.add('text-slate-400');
+            } else {
+                UI.audioIcon.innerHTML = `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2" />`;
+                UI.audioToggleBtn.classList.add('text-slate-600');
+                UI.audioToggleBtn.classList.remove('text-slate-400');
+            }
+        });
+
+        // --- Particle Synthesizer ---
+        class Particle {
+            constructor(x, y, color) {
+                this.x = x;
+                this.y = y;
+                this.vx = (Math.random() - 0.5) * 8;
+                this.vy = (Math.random() - 0.5) * 8;
+                this.radius = Math.random() * 3 + 1.5;
+                this.alpha = 1.0;
+                this.decay = Math.random() * 0.04 + 0.02;
+                this.color = color;
+            }
+            update() {
+                this.x += this.vx;
+                this.y += this.vy;
+                this.alpha -= this.decay;
+            }
+            draw() {
+                ctx.save();
+                ctx.globalAlpha = this.alpha;
+                ctx.fillStyle = this.color;
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.restore();
+            }
+        }
+
+        function createExplosion(gridX, gridY, color) {
+            const centerX = gridX * tileWidth + tileWidth/2;
+            const centerY = gridY * tileWidth + tileWidth/2;
+            for (let i = 0; i < 15; i++) {
+                particles.push(new Particle(centerX, centerY, color));
+            }
+        }
+
+        // --- Menu Config Setters ---
+        window.setOpponent = function(type) {
+            opponentType = type;
+            ['solo', 'cpu'].forEach(t => {
+                const btn = document.getElementById(`opp-${t}`);
+                if (t === type) {
+                    btn.className = "py-2 text-xs rounded-lg border border-emerald-500/50 bg-emerald-950/30 text-emerald-400 font-bold tracking-wider hover:bg-emerald-950/50 transition";
+                } else {
+                    btn.className = "py-2 text-xs rounded-lg border border-slate-800 bg-slate-900 text-slate-400 font-bold tracking-wider hover:bg-slate-850 transition";
+                }
+            });
+            
+            // Adjust HUD Labels based on mode selection
+            if (type === 'cpu') {
+                UI.hudScoreLabel.textContent = "YOU";
+                UI.hudHighScoreLabel.textContent = "CPU";
+                UI.cpuDifficultySection.classList.remove('hidden');
+                UI.soloPaceSection.classList.add('hidden');
+            } else {
+                UI.hudScoreLabel.textContent = "SCORE";
+                UI.hudHighScoreLabel.textContent = "HIGH SCORE";
+                UI.cpuDifficultySection.classList.add('hidden');
+                UI.soloPaceSection.classList.remove('hidden');
+            }
+
+            AudioEngine.playBeep(220, 0.05, 'triangle', 0.03);
+        };
+
+        window.setSoloPace = function(level) {
+            soloPace = level;
+            localStorage.setItem('snake_odyssey_pace', soloPace);
+            ['relaxed', 'standard', 'aggressive'].forEach(l => {
+                const btn = document.getElementById(`pace-${l}`);
+                if (l === level) {
+                    btn.className = "py-2 text-xs rounded-lg border border-emerald-500/50 bg-emerald-950/30 text-emerald-400 font-bold tracking-wider hover:bg-emerald-950/50 transition";
+                } else {
+                    btn.className = "py-2 text-xs rounded-lg border border-slate-800 bg-slate-900 text-slate-400 font-bold tracking-wider hover:bg-slate-850 transition";
+                }
+            });
+            AudioEngine.playBeep(330, 0.05, 'triangle', 0.03);
+        };
+
+        window.setCpuDifficulty = function(level) {
+            cpuDifficulty = level;
+            ['easy', 'medium', 'hard', 'challenging'].forEach(l => {
+                const btn = document.getElementById(`diff-${l}`);
+                if (l === level) {
+                    btn.className = "py-2 text-xs rounded-lg border border-emerald-500/50 bg-emerald-950/30 text-emerald-400 font-bold tracking-wider hover:bg-emerald-950/50 transition";
+                } else {
+                    btn.className = "py-2 text-xs rounded-lg border border-slate-800 bg-slate-900 text-slate-400 font-bold tracking-wider hover:bg-slate-850 transition";
+                }
+            });
+            AudioEngine.playBeep(290, 0.05, 'triangle', 0.03);
+        };
+
+        window.setMode = function(mode) {
+            currentMode = mode;
+            ['classic', 'portal', 'labyrinth'].forEach(m => {
+                const btn = document.getElementById(`mode-${m}`);
+                if (m === mode) {
+                    btn.className = "py-2 text-xs rounded-lg border border-emerald-500/50 bg-emerald-950/30 text-emerald-400 font-bold tracking-wider hover:bg-emerald-950/50 transition";
+                } else {
+                    btn.className = "py-2 text-xs rounded-lg border border-slate-800 bg-slate-900 text-slate-400 font-bold tracking-wider hover:bg-slate-850 transition";
+                }
+            });
+            AudioEngine.playBeep(261.63, 0.05, 'triangle', 0.03); // Feedback sound
+        };
+
+        window.setPalette = function(paletteKey) {
+            currentPalette = paletteKey;
+            Object.keys(Palettes).forEach(key => {
+                const btn = document.getElementById(`pal-${key}`);
+                if (key === paletteKey) {
+                    btn.classList.add('border-2');
+                    btn.classList.add('border-cyan-400');
+                    btn.classList.remove('border-slate-800');
+                } else {
+                    btn.classList.remove('border-2');
+                    btn.classList.remove('border-cyan-400');
+                    btn.classList.add('border-slate-800');
+                }
+            });
+            
+            // Re-render CTA button color schema to match palette
+            const accentColors = {
+                emerald: { glow: 'rgba(16, 185, 129, 0.4)', bg: 'bg-emerald-500' },
+                cyber: { glow: 'rgba(236, 72, 153, 0.4)', bg: 'bg-pink-500' },
+                gold: { glow: 'rgba(251, 191, 36, 0.4)', bg: 'bg-amber-400' },
+                ocean: { glow: 'rgba(34, 211, 238, 0.4)', bg: 'bg-cyan-400' }
+            };
+            const currentAccent = accentColors[paletteKey];
+            UI.startPlayBtn.className = `neon-glow-btn w-full py-3 ${currentAccent.bg} text-slate-950 font-black rounded-xl tracking-widest text-lg orbitron`;
+            UI.startPlayBtn.style.setProperty('--glow-color', currentAccent.glow);
+
+            AudioEngine.playBeep(329.63, 0.05, 'triangle', 0.03); // Feedback sound
+        };
+
+        // Get contrasting skin profile for CPU
+        function getCpuPalette() {
+            if (currentPalette === 'emerald') return Palettes['cyber'];
+            if (currentPalette === 'cyber') return Palettes['ocean'];
+            if (currentPalette === 'gold') return Palettes['ocean'];
+            return Palettes['gold']; // ocean fallback
+        }
+
+        // --- Game Logic Operations ---
+
+        function initNewGame() {
+            AudioEngine.init();
+            
+            // Set stats
+            score = 0;
+            foodEatenCount = 0;
+            activePower = null;
+            powerup = null;
+            powerupTimer = 0;
+            comboCount = 0;
+            lastEatTimestamp = 0;
+            comboFlashText = null;
+            comboFlashUntil = 0;
+            updatePowerHUD('NONE', 0);
+
+            // Rebuild Snake Body Array - Repositioned to scale with 30x30 grid
+            snake = [
+                { x: 15, y: 20 },
+                { x: 14, y: 20 },
+                { x: 13, y: 20 }
+            ];
+            direction = 'RIGHT';
+            nextDirection = 'RIGHT';
+
+            // Set up CPU Competitor if enabled - Repositioned to scale with 30x30 grid
+            if (opponentType === 'cpu') {
+                cpuActive = true;
+                cpuScore = 0;
+                cpuSnake = [
+                    { x: 15, y: 8 },
+                    { x: 16, y: 8 },
+                    { x: 17, y: 8 }
+                ];
+                cpuDirection = 'LEFT';
+                cpuNextDirection = 'LEFT';
+            } else {
+                cpuActive = false;
+            }
+
+            updateScoreDisplays();
+
+            // Generate Map Obstacles
+            obstacles = [];
+            if (currentMode === 'labyrinth') {
+                generateLabyrinthObstacles();
+            }
+
+            // Spawn Food Matrix
+            spawnFoodItem();
+
+            // Fire engine up
+            gameStatus = 'PLAYING';
+            UI.menuPanel.classList.add('hidden');
+            UI.gameOverPanel.classList.add('hidden');
+            UI.pauseOverlay.classList.add('hidden');
+
+            // Set pause button back to pause icon representation
+            UI.pauseIcon.innerHTML = `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z" />`;
+
+            // Apply dynamic visual glow outline to container based on selected style
+            const paletteData = Palettes[currentPalette];
+            UI.boardContainer.style.borderColor = paletteData.head;
+            UI.boardContainer.style.boxShadow = `0 0 25px ${paletteData.head}40`;
+
+            AudioEngine.playPowerup();
+        }
+
+        function isCellBlockedForSpawn(x, y) {
+            if (obstacles.some(wall => wall.x === x && wall.y === y)) return true;
+            if (snake.some(seg => seg.x === x && seg.y === y)) return true;
+            if (cpuActive && cpuSnake.some(seg => seg.x === x && seg.y === y)) return true;
+            return false;
+        }
+
+        function countReachableFromPlayer() {
+            const start = snake[0];
+            if (!start) return 0;
+            const visited = new Set();
+            const queue = [`${start.x},${start.y}`];
+            visited.add(queue[0]);
+            let reachable = 0;
+
+            while (queue.length > 0) {
+                const key = queue.shift();
+                const [cx, cy] = key.split(',').map(Number);
+                reachable++;
+
+                const neighbors = [
+                    { x: cx + 1, y: cy },
+                    { x: cx - 1, y: cy },
+                    { x: cx, y: cy + 1 },
+                    { x: cx, y: cy - 1 }
+                ];
+
+                for (const n of neighbors) {
+                    if (n.x < 0 || n.x >= gridTilesCount || n.y < 0 || n.y >= gridTilesCount) continue;
+                    const nKey = `${n.x},${n.y}`;
+                    if (visited.has(nKey)) continue;
+                    if (isCellBlockedForSpawn(n.x, n.y)) continue;
+                    visited.add(nKey);
+                    queue.push(nKey);
+                }
+            }
+            return reachable;
+        }
+
+        function addWallRect(x, y, w, h, minSpaceFromSnakes) {
+            for (let dx = 0; dx < w; dx++) {
+                for (let dy = 0; dy < h; dy++) {
+                    const ox = x + dx;
+                    const oy = y + dy;
+                    if (ox < 0 || ox >= gridTilesCount || oy < 0 || oy >= gridTilesCount) continue;
+                    const distToPlayer = Math.abs(ox - 15) + Math.abs(oy - 20);
+                    const distToCpu = Math.abs(ox - 15) + Math.abs(oy - 8);
+                    if (distToPlayer <= minSpaceFromSnakes || distToCpu <= minSpaceFromSnakes) continue;
+                    if (!obstacles.some(w => w.x === ox && w.y === oy)) {
+                        obstacles.push({ x: ox, y: oy });
+                    }
+                }
+            }
+        }
+
+        function generateLabyrinthObstacles() {
+            const minSpaceFromSnakes = 4;
+            const wallLibrary = [
+                { x: 5, y: 10, w: 5, h: 1 },
+                { x: 20, y: 10, w: 5, h: 1 },
+                { x: 5, y: 20, w: 5, h: 1 },
+                { x: 20, y: 20, w: 5, h: 1 },
+                { x: 14, y: 5, w: 2, h: 5 },
+                { x: 14, y: 20, w: 2, h: 5 },
+                { x: 10, y: 14, w: 1, h: 6 },
+                { x: 18, y: 14, w: 1, h: 6 },
+                { x: 7, y: 7, w: 4, h: 1 },
+                { x: 18, y: 22, w: 4, h: 1 },
+                { x: 3, y: 15, w: 3, h: 2 },
+                { x: 24, y: 12, w: 3, h: 2 }
+            ];
+            const minReachable = Math.floor(gridTilesCount * gridTilesCount * 0.6);
+
+            for (let attempt = 0; attempt < 5; attempt++) {
+                obstacles = [];
+
+                const shuffled = [...wallLibrary].sort(() => Math.random() - 0.5);
+                const wallCount = 3 + Math.floor(Math.random() * 3);
+                for (let i = 0; i < wallCount; i++) {
+                    const wall = shuffled[i];
+                    const offsetX = Math.floor(Math.random() * 5) - 2;
+                    const offsetY = Math.floor(Math.random() * 5) - 2;
+                    addWallRect(wall.x + offsetX, wall.y + offsetY, wall.w, wall.h, minSpaceFromSnakes);
+                }
+
+                const scatterCount = 8 + Math.floor(Math.random() * 8);
+                let placed = 0;
+                let scatterAttempts = 0;
+                while (placed < scatterCount && scatterAttempts < 80) {
+                    scatterAttempts++;
+                    const ox = Math.floor(Math.random() * gridTilesCount);
+                    const oy = Math.floor(Math.random() * gridTilesCount);
+                    const distToPlayer = Math.abs(ox - 15) + Math.abs(oy - 20);
+                    const distToCpu = Math.abs(ox - 15) + Math.abs(oy - 8);
+                    if (distToPlayer <= minSpaceFromSnakes || distToCpu <= minSpaceFromSnakes) continue;
+                    if (obstacles.some(w => w.x === ox && w.y === oy)) continue;
+                    obstacles.push({ x: ox, y: oy });
+                    placed++;
+                }
+
+                if (countReachableFromPlayer() >= minReachable) {
+                    return;
+                }
+            }
+        }
+
+        function spawnFoodItem() {
+            let valid = false;
+            let fx, fy;
+            let attempts = 0;
+
+            while (!valid && attempts < 100) {
+                attempts++;
+                fx = Math.floor(Math.random() * gridTilesCount);
+                fy = Math.floor(Math.random() * gridTilesCount);
+
+                // Collision logic checks
+                const collidesWithSnake = snake.some(segment => segment.x === fx && segment.y === fy);
+                const collidesWithCpu = cpuActive && cpuSnake.some(segment => segment.x === fx && segment.y === fy);
+                const collidesWithObstacle = obstacles.some(wall => wall.x === fx && wall.y === fy);
+
+                if (!collidesWithSnake && !collidesWithCpu && !collidesWithObstacle) {
+                    valid = true;
+                }
+            }
+
+            // 15% chance to spawn special golden food matrix
+            food = {
+                x: fx,
+                y: fy,
+                type: Math.random() < 0.15 ? 'bonus' : 'standard'
+            };
+        }
+
+        function spawnPowerupItem() {
+            // 25% chance of spawning a powerup if there isn't one on grid and none is active
+            if (powerup || activePower) return;
+            if (Math.random() > 0.3) return;
+
+            let valid = false;
+            let px, py;
+
+            while (!valid) {
+                px = Math.floor(Math.random() * gridTilesCount);
+                py = Math.floor(Math.random() * gridTilesCount);
+
+                const collidesSnake = snake.some(seg => seg.x === px && seg.y === py);
+                const collidesCpu = cpuActive && cpuSnake.some(seg => seg.x === px && seg.y === py);
+                const collidesObstacle = obstacles.some(wall => wall.x === px && wall.y === py);
+                const collidesFood = (food.x === px && food.y === py);
+
+                if (!collidesSnake && !collidesCpu && !collidesObstacle && !collidesFood) {
+                    valid = true;
+                }
+            }
+
+            // Random selection of type
+            const types = ['ghost', 'freeze', 'double', 'shrink'];
+            const randomType = types[Math.floor(Math.random() * types.length)];
+
+            powerup = {
+                x: px,
+                y: py,
+                type: randomType
+            };
+        }
+
+        // --- Intelligent Pathfinding AI for Rival CPU ---
+        function calculateCpuAiMove() {
+            if (!cpuActive || cpuSnake.length === 0) return;
+
+            const head = cpuSnake[0];
+            const directions = ['UP', 'DOWN', 'LEFT', 'RIGHT'];
+            const opposites = { 'UP': 'DOWN', 'DOWN': 'UP', 'LEFT': 'RIGHT', 'RIGHT': 'LEFT' };
+
+            // Reject instant backwards movement
+            let validDirs = directions.filter(d => d !== opposites[cpuDirection]);
+            let safeChoices = [];
+
+            validDirs.forEach(dir => {
+                let nextX = head.x;
+                let nextY = head.y;
+
+                switch(dir) {
+                    case 'UP':    nextY -= 1; break;
+                    case 'DOWN':  nextY += 1; break;
+                    case 'LEFT':  nextX -= 1; break;
+                    case 'RIGHT': nextX += 1; break;
+                }
+
+                // Game Mode Wraparound Adapter
+                if (currentMode === 'portal') {
+                    if (nextX < 0) nextX = gridTilesCount - 1;
+                    if (nextX >= gridTilesCount) nextX = 0;
+                    if (nextY < 0) nextY = gridTilesCount - 1;
+                    if (nextY >= gridTilesCount) nextY = 0;
+                }
+
+                // Check Collisions
+                let isDeadly = false;
+
+                // 1. Boundary Bounds check (for Classic/Labyrinth modes)
+                if (currentMode !== 'portal') {
+                    if (nextX < 0 || nextX >= gridTilesCount || nextY < 0 || nextY >= gridTilesCount) {
+                        isDeadly = true;
+                    }
+                }
+
+                // 2. Obstacles
+                if (!isDeadly && obstacles.some(wall => wall.x === nextX && wall.y === nextY)) {
+                    isDeadly = true;
+                }
+
+                // 3. Player's body
+                if (!isDeadly && snake.some(seg => seg.x === nextX && seg.y === nextY)) {
+                    isDeadly = true;
+                }
+
+                // 4. CPU's own body
+                if (!isDeadly && cpuSnake.some(seg => seg.x === nextX && seg.y === nextY)) {
+                    isDeadly = true;
+                }
+
+                if (!isDeadly) {
+                    // Calculate Manhattan distance factor to the food matrix
+                    const distToFood = Math.abs(nextX - food.x) + Math.abs(nextY - food.y);
+                    
+                    // Slightly value powerups too if they exist nearby
+                    let bias = 0;
+                    if (powerup) {
+                        const distToPower = Math.abs(nextX - powerup.x) + Math.abs(nextY - powerup.y);
+                        if (distToPower < 5) bias = distToPower * 0.1; // head to powerup bonus pathing
+                    }
+
+                    safeChoices.push({ dir, weight: distToFood + bias });
+                }
+            });
+
+            if (safeChoices.length > 0) {
+                // Sort to find path closest to food
+                safeChoices.sort((a, b) => a.weight - b.weight);
+                
+                // Determine probability of choosing the absolute best path based on difficulty level
+                let optimalChance = 0.75; // default medium
+                if (cpuDifficulty === 'easy') {
+                    optimalChance = 0.55;
+                } else if (cpuDifficulty === 'hard') {
+                    optimalChance = 0.90;
+                } else if (cpuDifficulty === 'challenging') {
+                    optimalChance = 0.98;
+                }
+
+                if (Math.random() < optimalChance) {
+                    cpuNextDirection = safeChoices[0].dir;
+                } else {
+                    cpuNextDirection = safeChoices[Math.floor(Math.random() * safeChoices.length)].dir;
+                }
+            } else {
+                // No safe moves! Face current direction and collide naturally
+                cpuNextDirection = cpuDirection;
+            }
+        }
+
+        function executeMovementTick() {
+            // Update CPU Pathing vector directly before tick calculation
+            if (cpuActive) {
+                calculateCpuAiMove();
+            }
+
+            // Commit requested direction queues
+            direction = nextDirection;
+            if (cpuActive) cpuDirection = cpuNextDirection;
+
+            // Track flags for collisions in this step
+            let playerCrashed = false;
+            let cpuCrashed = false;
+
+            // --- 1. Move Player ---
+            const head = { ...snake[0] };
+            switch (direction) {
+                case 'UP':    head.y -= 1; break;
+                case 'DOWN':  head.y += 1; break;
+                case 'LEFT':  head.x -= 1; break;
+                case 'RIGHT': head.x += 1; break;
+            }
+
+            // Wall check
+            if (currentMode === 'portal') {
+                if (head.x < 0) head.x = gridTilesCount - 1;
+                if (head.x >= gridTilesCount) head.x = 0;
+                if (head.y < 0) head.y = gridTilesCount - 1;
+                if (head.y >= gridTilesCount) head.y = 0;
+            } else {
+                if (head.x < 0 || head.x >= gridTilesCount || head.y < 0 || head.y >= gridTilesCount) {
+                    playerCrashed = true;
+                }
+            }
+
+            // Obstacle & Self collisions
+            if (obstacles.some(wall => wall.x === head.x && wall.y === head.y)) playerCrashed = true;
+            if (activePower !== 'ghost' && snake.some(seg => seg.x === head.x && seg.y === head.y)) playerCrashed = true;
+            
+            // Check collision with CPU body
+            if (cpuActive && cpuSnake.some(seg => seg.x === head.x && seg.y === head.y)) {
+                playerCrashed = true;
+            }
+
+
+            // --- 2. Move CPU Competitor ---
+            let cpuHead = null;
+            if (cpuActive) {
+                cpuHead = { ...cpuSnake[0] };
+                switch (cpuDirection) {
+                    case 'UP':    cpuHead.y -= 1; break;
+                    case 'DOWN':  cpuHead.y += 1; break;
+                    case 'LEFT':  cpuHead.x -= 1; break;
+                    case 'RIGHT': cpuHead.x += 1; break;
+                }
+
+                // Wall check for CPU
+                if (currentMode === 'portal') {
+                    if (cpuHead.x < 0) cpuHead.x = gridTilesCount - 1;
+                    if (cpuHead.x >= gridTilesCount) cpuHead.x = 0;
+                    if (cpuHead.y < 0) cpuHead.y = gridTilesCount - 1;
+                    if (cpuHead.y >= gridTilesCount) cpuHead.y = 0;
+                } else {
+                    if (cpuHead.x < 0 || cpuHead.x >= gridTilesCount || cpuHead.y < 0 || cpuHead.y >= gridTilesCount) {
+                        cpuCrashed = true;
+                    }
+                }
+
+                // CPU obstacle, self, and player body collision
+                if (obstacles.some(wall => wall.x === cpuHead.x && wall.y === cpuHead.y)) cpuCrashed = true;
+                if (cpuSnake.some(seg => seg.x === cpuHead.x && seg.y === cpuHead.y)) cpuCrashed = true;
+                if (snake.some(seg => seg.x === cpuHead.x && seg.y === cpuHead.y)) cpuCrashed = true;
+            }
+
+            // Check head-on collisions
+            if (cpuActive && head.x === cpuHead.x && head.y === cpuHead.y) {
+                playerCrashed = true;
+                cpuCrashed = true;
+            }
+
+            // Evaluate system crashes
+            if (playerCrashed || cpuCrashed) {
+                triggerGameOver(playerCrashed, cpuCrashed);
+                return;
+            }
+
+            // --- Append Player Head ---
+            snake.unshift(head);
+
+            // Eat detection for Player
+            if (head.x === food.x && head.y === food.y) {
+                const points = (food.type === 'bonus') ? 30 : 10;
+                const doubleMult = (activePower === 'double') ? 2 : 1;
+                const now = performance.now();
+
+                if (lastEatTimestamp > 0 && (now - lastEatTimestamp) <= COMBO_WINDOW_MS) {
+                    comboCount++;
+                } else {
+                    comboCount = 1;
+                }
+                lastEatTimestamp = now;
+
+                const comboMult = comboCount > 1
+                    ? Math.min(2, 1 + comboCount * COMBO_BONUS_PER_STACK)
+                    : 1;
+                score += Math.round(points * doubleMult * comboMult);
+                foodEatenCount++;
+
+                if (comboCount > 1) {
+                    comboFlashText = `x${comboCount} COMBO`;
+                    comboFlashUntil = now + 500;
+                    const comboFreq = 440 + comboCount * 80;
+                    AudioEngine.playBeep(comboFreq, 0.08, 'square', 0.06);
+                }
+
+                createExplosion(food.x, food.y, (food.type === 'bonus') ? '#f59e0b' : Palettes[currentPalette].particle);
+                AudioEngine.playEat();
+
+                if (opponentType === 'solo' && score > highScore) {
+                    highScore = score;
+                    localStorage.setItem('snake_odyssey_highscore', highScore);
+                }
+
+                updateScoreDisplays();
+                syncHudBuffer();
+                spawnFoodItem();
+                spawnPowerupItem();
+            } else {
+                snake.pop();
+            }
+
+            // --- Append CPU Head ---
+            if (cpuActive) {
+                cpuSnake.unshift(cpuHead);
+
+                // Eat detection for CPU
+                if (cpuHead.x === food.x && cpuHead.y === food.y) {
+                    const points = (food.type === 'bonus') ? 30 : 10;
+                    
+                    cpuScore += points;
+                    createExplosion(food.x, food.y, getCpuPalette().particle);
+                    AudioEngine.playEat();
+
+                    updateScoreDisplays();
+                    spawnFoodItem();
+                    spawnPowerupItem();
+                } else {
+                    cpuSnake.pop();
+                }
+            }
+
+            // Check Player Powerup Pickups
+            if (powerup && head.x === powerup.x && head.y === powerup.y) {
+                const pickedType = powerup.type;
+                createExplosion(powerup.x, powerup.y, getPowerupColor(pickedType));
+                AudioEngine.playPowerup();
+                powerup = null;
+
+                if (pickedType === 'shrink') {
+                    let trimmed = 0;
+                    while (snake.length > 3 && trimmed < 3) {
+                        snake.pop();
+                        trimmed++;
+                    }
+                    updatePowerHUD('SHRINK', 100);
+                    setTimeout(() => syncHudBuffer(), 400);
+                } else {
+                    activePower = pickedType;
+                    powerupTimer = 6000;
+                }
+            }
+        }
+
+        function getPowerupColor(type) {
+            switch (type) {
+                case 'ghost':  return '#22d3ee'; // cyan
+                case 'freeze': return '#fbbf24'; // yellow / amber
+                case 'double': return '#f472b6'; // pink
+                case 'shrink': return '#a78bfa'; // violet
+                default:       return '#ffffff';
+            }
+        }
+
+        function updateScoreDisplays() {
+            if (opponentType === 'cpu') {
+                UI.hudScore.textContent = String(score).padStart(3, '0');
+                UI.hudHighScore.textContent = String(cpuScore).padStart(3, '0');
+            } else {
+                UI.hudScore.textContent = String(score).padStart(3, '0');
+                UI.hudHighScore.textContent = String(highScore).padStart(3, '0');
+            }
+        }
+
+        function updatePowerHUD(powerName, progressPercent) {
+            if (powerName === 'NONE') {
+                syncHudBuffer();
+                return;
+            }
+
+            UI.hudActivePower.textContent = powerName;
+            const colorMap = {
+                'GHOST': 'text-cyan-400',
+                'FREEZE': 'text-amber-400',
+                'DOUBLE': 'text-pink-400',
+                'SHRINK': 'text-violet-400',
+                'COMBO': 'text-emerald-400'
+            };
+            UI.hudActivePower.className = `orbitron text-xs md:text-sm font-bold ${colorMap[powerName] || 'text-slate-400'} uppercase animate-pulse`;
+            UI.powerProgressBar.style.width = `${progressPercent}%`;
+
+            const barColor = {
+                'GHOST': 'bg-cyan-400',
+                'FREEZE': 'bg-amber-400',
+                'DOUBLE': 'bg-pink-400',
+                'SHRINK': 'bg-violet-400',
+                'COMBO': 'bg-emerald-400'
+            };
+            UI.powerProgressBar.className = `absolute bottom-0 left-0 h-1 ${barColor[powerName] || 'bg-slate-500'} w-0 transition-all duration-100`;
+        }
+
+        function syncHudBuffer() {
+            if (activePower) return;
+
+            if (comboCount > 1 && lastEatTimestamp > 0) {
+                const elapsed = performance.now() - lastEatTimestamp;
+                if (elapsed <= COMBO_WINDOW_MS) {
+                    const progressPercent = Math.max(0, 100 - (elapsed / COMBO_WINDOW_MS) * 100);
+                    updatePowerHUD('COMBO', progressPercent);
+                    UI.hudActivePower.textContent = `COMBO x${comboCount}`;
+                    return;
+                }
+                comboCount = 0;
+            }
+
+            UI.hudActivePower.textContent = 'NONE';
+            UI.hudActivePower.className = "orbitron text-xs md:text-sm font-bold text-slate-500 uppercase";
+            UI.powerProgressBar.style.width = '0%';
+            UI.powerProgressBar.className = 'absolute bottom-0 left-0 h-1 bg-cyan-400 w-0 transition-all duration-100';
+        }
+
+        function togglePause() {
+            if (gameStatus === 'PLAYING') {
+                gameStatus = 'PAUSED';
+                UI.pauseOverlay.classList.remove('hidden');
+                // Switch button to Play icon
+                UI.pauseIcon.innerHTML = `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />`;
+                AudioEngine.playBeep(220, 0.15, 'sawtooth', 0.05);
+            } else if (gameStatus === 'PAUSED') {
+                gameStatus = 'PLAYING';
+                UI.pauseOverlay.classList.add('hidden');
+                // Switch button back to Pause icon
+                UI.pauseIcon.innerHTML = `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z" />`;
+                AudioEngine.playBeep(330, 0.1, 'sawtooth', 0.05);
+            }
+        }
+
+        function triggerGameOver(playerCrashed, cpuCrashed) {
+            gameStatus = 'OVER';
+            comboCount = 0;
+            lastEatTimestamp = 0;
+            comboFlashText = null;
+            screenShakeValue = 15; // Trigger screenshake logic
+            
+            // Set up scoreboard display elements based on matchup mode
+            if (opponentType === 'cpu') {
+                UI.statScoreLabel.textContent = "YOUR SCORE";
+                UI.cpuEndScoreWrapper.classList.remove('hidden');
+                UI.highScoreEndWrapper.classList.add('hidden'); // Hide Solo Highscore to clean screen space
+                UI.endCpuScore.textContent = String(cpuScore).padStart(4, '0');
+
+                // Determine Winner
+                let isPlayerVictory = false;
+                if (playerCrashed && !cpuCrashed) {
+                    UI.gameOverTitle.textContent = "DEFEAT! YOU CRASHED";
+                    UI.gameOverTitle.className = "orbitron text-2xl md:text-3xl font-black text-rose-500 tracking-wider mb-2";
+                    UI.gameOverSub.textContent = "The CPU Competitor evaded failure and claims the field";
+                } else if (cpuCrashed && !playerCrashed) {
+                    UI.gameOverTitle.textContent = "VICTORY! CPU CRASHED";
+                    UI.gameOverTitle.className = "orbitron text-2xl md:text-3xl font-black text-emerald-400 tracking-wider mb-2 neon-text-green";
+                    UI.gameOverSub.textContent = "The CPU collided with an obstacle. You survive and win!";
+                    isPlayerVictory = true;
+                } else {
+                    // Head-on collision or both crashed at once, evaluate scores
+                    if (score > cpuScore) {
+                        UI.gameOverTitle.textContent = "VICTORY! HIGHER SCORE";
+                        UI.gameOverTitle.className = "orbitron text-2xl md:text-3xl font-black text-emerald-400 tracking-wider mb-2 neon-text-green";
+                        UI.gameOverSub.textContent = "Both crashed but you successfully out-collected the CPU";
+                        isPlayerVictory = true;
+                    } else if (cpuScore > score) {
+                        UI.gameOverTitle.textContent = "DEFEAT! CPU DOMINATED";
+                        UI.gameOverTitle.className = "orbitron text-2xl md:text-3xl font-black text-rose-500 tracking-wider mb-2";
+                        UI.gameOverSub.textContent = "The CPU gathered more neon coin resources than you did";
+                    } else {
+                        UI.gameOverTitle.textContent = "DRAW MATCH!";
+                        UI.gameOverTitle.className = "orbitron text-2xl md:text-3xl font-black text-amber-400 tracking-wider mb-2";
+                        UI.gameOverSub.textContent = "Identical scores. The cybernetic system remains in balance";
+                    }
+                }
+                AudioEngine.playGameOver(isPlayerVictory);
+
+            } else {
+                // Solo Mode gameover text setups
+                UI.statScoreLabel.textContent = "FINAL SCORE";
+                UI.cpuEndScoreWrapper.classList.add('hidden');
+                UI.highScoreEndWrapper.classList.remove('hidden');
+                
+                UI.gameOverTitle.textContent = "SYSTEM FAILURE";
+                UI.gameOverTitle.className = "orbitron text-2xl md:text-4xl font-black text-rose-500 tracking-wider mb-2";
+                UI.gameOverSub.textContent = "Snake collision or structural collapse detected";
+                
+                AudioEngine.playGameOver(false);
+            }
+
+            UI.endScore.textContent = String(score).padStart(4, '0');
+            UI.endHighScore.textContent = String(highScore).padStart(4, '0');
+            UI.endFoodEaten.textContent = foodEatenCount;
+
+            UI.gameOverPanel.classList.remove('hidden');
+        }
+
+        // --- Keyboard Vector Input Map ---
+        const directionalMap = {
+            'ArrowUp': 'UP', 'KeyW': 'UP',
+            'ArrowDown': 'DOWN', 'KeyS': 'DOWN',
+            'ArrowLeft': 'LEFT', 'KeyA': 'LEFT',
+            'ArrowRight': 'RIGHT', 'KeyD': 'RIGHT'
+        };
+
+        window.addEventListener('keydown', e => {
+            // Block system scrolling when in action
+            if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.code)) {
+                e.preventDefault();
+            }
+
+            // Universal Pause Switch Handlers
+            if (e.code === 'Escape' || e.code === 'KeyP') {
+                if (gameStatus === 'PLAYING' || gameStatus === 'PAUSED') {
+                    togglePause();
+                }
+                return;
+            }
+
+            // Restart shortcut when viewing over game
+            if (e.code === 'Space' || e.code === 'Enter') {
+                if (gameStatus === 'MENU') {
+                    initNewGame();
+                } else if (gameStatus === 'OVER') {
+                    initNewGame();
+                }
+                return;
+            }
+
+            const incomingDir = directionalMap[e.code];
+            if (incomingDir) {
+                handleDirectionInput(incomingDir);
+            }
+        });
+
+        function handleDirectionInput(incomingDir) {
+            if (gameStatus !== 'PLAYING') return;
+
+            // Anti-reverse direction lockouts
+            if (incomingDir === 'UP' && direction === 'DOWN') return;
+            if (incomingDir === 'DOWN' && direction === 'UP') return;
+            if (incomingDir === 'LEFT' && direction === 'RIGHT') return;
+            if (incomingDir === 'RIGHT' && direction === 'LEFT') return;
+
+            nextDirection = incomingDir;
+        }
+
+        // --- Touch Swipe Detection Implementation ---
+        let touchStartX = 0;
+        let touchStartY = 0;
+        canvas.addEventListener('touchstart', e => {
+            touchStartX = e.changedTouches[0].screenX;
+            touchStartY = e.changedTouches[0].screenY;
+        }, { passive: true });
+
+        canvas.addEventListener('touchend', e => {
+            if (gameStatus !== 'PLAYING') return;
+
+            const touchEndX = e.changedTouches[0].screenX;
+            const touchEndY = e.changedTouches[0].screenY;
+
+            const dx = touchEndX - touchStartX;
+            const dy = touchEndY - touchStartY;
+            const threshold = 30; // Min swipe distance
+
+            if (Math.abs(dx) > Math.abs(dy)) {
+                // Horizontal Swipe Vector
+                if (Math.abs(dx) > threshold) {
+                    if (dx > 0) handleDirectionInput('RIGHT');
+                    else handleDirectionInput('LEFT');
+                }
+            } else {
+                // Vertical Swipe Vector
+                if (Math.abs(dy) > threshold) {
+                    if (dy > 0) handleDirectionInput('DOWN');
+                    else handleDirectionInput('UP');
+                }
+            }
+        }, { passive: true });
+
+
+        // --- Render Loop & Graphic Draw Pipeline ---
+
+        function drawGameboard() {
+            // Apply screenshake effects if triggered
+            ctx.save();
+            if (screenShakeValue > 0.1) {
+                const shakeX = (Math.random() - 0.5) * screenShakeValue;
+                const shakeY = (Math.random() - 0.5) * screenShakeValue;
+                ctx.translate(shakeX, shakeY);
+                screenShakeValue *= 0.9; // decay
+            }
+
+            // Clear Scene
+            ctx.fillStyle = '#020617';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // Draw Subtle Grid Matrix Backing
+            ctx.strokeStyle = '#0f172a';
+            ctx.lineWidth = 1;
+            for (let i = 0; i <= gridTilesCount; i++) {
+                // Vertical lines
+                ctx.beginPath();
+                ctx.moveTo(i * tileWidth, 0);
+                ctx.lineTo(i * tileWidth, canvas.height);
+                ctx.stroke();
+
+                // Horizontal lines
+                ctx.beginPath();
+                ctx.moveTo(0, i * tileWidth);
+                ctx.lineTo(canvas.width, i * tileWidth);
+                ctx.stroke();
+            }
+
+            // Draw Obstacles (Labyrinth mode)
+            if (currentMode === 'labyrinth') {
+                ctx.fillStyle = '#475569';
+                ctx.strokeStyle = '#1e293b';
+                ctx.lineWidth = 2;
+                obstacles.forEach(wall => {
+                    ctx.fillRect(wall.x * tileWidth + 2, wall.y * tileWidth + 2, tileWidth - 4, tileWidth - 4);
+                    ctx.strokeRect(wall.x * tileWidth + 2, wall.y * tileWidth + 2, tileWidth - 4, tileWidth - 4);
+                });
+            }
+
+            // Draw Active Power-Up Item on Canvas
+            if (powerup) {
+                const color = getPowerupColor(powerup.type);
+                ctx.save();
+                ctx.shadowColor = color;
+                ctx.shadowBlur = 10;
+                ctx.fillStyle = color;
+                
+                // Draw rotating/pulsing power diamond
+                ctx.beginPath();
+                const px = powerup.x * tileWidth + tileWidth/2;
+                const py = powerup.y * tileWidth + tileWidth/2;
+                const size = tileWidth * 0.35;
+                ctx.moveTo(px, py - size);
+                ctx.lineTo(px + size, py);
+                ctx.lineTo(px, py + size);
+                ctx.lineTo(px - size, py);
+                ctx.closePath();
+                ctx.fill();
+                ctx.restore();
+            }
+
+            // Draw Target Coins Matrix (Updated from simple foods)
+            ctx.save();
+            const fx = food.x * tileWidth + tileWidth / 2;
+            const fy = food.y * tileWidth + tileWidth / 2;
+            const coinRadius = tileWidth / 2 - 2;
+
+            if (food.type === 'bonus') {
+                ctx.fillStyle = '#fbbf24'; // Golden Yellow fill
+                ctx.strokeStyle = '#d97706'; // Dark Amber rim
+                ctx.shadowColor = '#fbbf24';
+            } else {
+                ctx.fillStyle = '#f472b6'; // Cyberpunk Neon Pink fill
+                ctx.strokeStyle = '#db2777'; // Dark Magenta/Pink rim
+                ctx.shadowColor = '#f472b6';
+            }
+            ctx.shadowBlur = 12;
+
+            // Draw coin outer circle body
+            ctx.beginPath();
+            ctx.arc(fx, fy, coinRadius, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // Draw coin outer highlighted rim line
+            ctx.lineWidth = 1.5;
+            ctx.stroke();
+
+            // Draw coin inner detail (nested design ring)
+            ctx.shadowBlur = 0; // Disable shadow for inner detail crispness
+            ctx.strokeStyle = food.type === 'bonus' ? '#78350f' : '#831843'; // deep contrast outline
+            ctx.beginPath();
+            ctx.arc(fx, fy, coinRadius * 0.5, 0, Math.PI * 2);
+            ctx.stroke();
+
+            // Draw vertical coin core stripe (resembles a classic currency pattern)
+            ctx.fillStyle = food.type === 'bonus' ? '#78350f' : '#831843';
+            ctx.fillRect(fx - 1.5, fy - coinRadius * 0.35, 3, coinRadius * 0.7);
+            ctx.restore();
+
+            // Draw Dynamic Active Player Snake
+            const palette = Palettes[currentPalette];
+            snake.forEach((segment, index) => {
+                const isHead = index === 0;
+                
+                ctx.save();
+                if (isHead) {
+                    ctx.fillStyle = palette.head;
+                    ctx.shadowColor = palette.glow;
+                    ctx.shadowBlur = 15;
+                } else {
+                    ctx.fillStyle = palette.body;
+                }
+
+                // If Ghost mode active, render semi-transparent
+                if (activePower === 'ghost') {
+                    ctx.globalAlpha = 0.6;
+                }
+
+                const rx = segment.x * tileWidth + 1.5;
+                const ry = segment.y * tileWidth + 1.5;
+                const rSize = tileWidth - 3;
+                const radius = isHead ? 6 : 4;
+
+                ctx.beginPath();
+                ctx.roundRect(rx, ry, rSize, rSize, radius);
+                ctx.fill();
+
+                // Draw Eye vector details for head
+                if (isHead) {
+                    drawSnakeEyes(segment, direction);
+                }
+                ctx.restore();
+            });
+
+            // Draw CPU Rival Snake if active
+            if (cpuActive) {
+                const cpuPalette = getCpuPalette();
+                cpuSnake.forEach((segment, index) => {
+                    const isHead = index === 0;
+                    
+                    ctx.save();
+                    if (isHead) {
+                        ctx.fillStyle = cpuPalette.head;
+                        ctx.shadowColor = cpuPalette.glow;
+                        ctx.shadowBlur = 15;
+                    } else {
+                        ctx.fillStyle = cpuPalette.body;
+                    }
+
+                    const rx = segment.x * tileWidth + 1.5;
+                    const ry = segment.y * tileWidth + 1.5;
+                    const rSize = tileWidth - 3;
+                    const radius = isHead ? 6 : 4;
+
+                    ctx.beginPath();
+                    ctx.roundRect(rx, ry, rSize, rSize, radius);
+                    ctx.fill();
+
+                    if (isHead) {
+                        drawSnakeEyes(segment, cpuDirection);
+                    }
+                    ctx.restore();
+                });
+            }
+
+            // Combo flash overlay text
+            if (comboFlashText && performance.now() < comboFlashUntil) {
+                ctx.save();
+                ctx.font = `bold ${Math.max(14, tileWidth * 1.2)}px Orbitron, sans-serif`;
+                ctx.textAlign = 'center';
+                ctx.fillStyle = '#34d399';
+                ctx.shadowColor = '#10b981';
+                ctx.shadowBlur = 12;
+                const alpha = Math.min(1, (comboFlashUntil - performance.now()) / 500);
+                ctx.globalAlpha = alpha;
+                const boardW = gridTilesCount * tileWidth;
+                ctx.fillText(comboFlashText, boardW / 2, tileWidth * 4);
+                ctx.restore();
+            } else if (comboFlashText && performance.now() >= comboFlashUntil) {
+                comboFlashText = null;
+            }
+
+            // Draw Explosive Particles inside Engine loop
+            particles.forEach((part, index) => {
+                part.update();
+                part.draw();
+                if (part.alpha <= 0) {
+                    particles.splice(index, 1);
+                }
+            });
+
+            ctx.restore(); // Restore shake transformations
+        }
+
+        // Subroutine to cleanly project eyes onto snake head assets
+        function drawSnakeEyes(segment, currentDir) {
+            ctx.fillStyle = '#0f172a';
+            const eyeOffset = tileWidth * 0.25;
+            const eyeSize = tileWidth * 0.15;
+
+            let e1x = 0, e1y = 0, e2x = 0, e2y = 0;
+            
+            if (currentDir === 'RIGHT') {
+                e1x = tileWidth - eyeOffset; e1y = eyeOffset;
+                e2x = tileWidth - eyeOffset; e2y = tileWidth - eyeOffset;
+            } else if (currentDir === 'LEFT') {
+                e1x = eyeOffset; e1y = eyeOffset;
+                e2x = eyeOffset; e2y = tileWidth - eyeOffset;
+            } else if (currentDir === 'UP') {
+                e1x = eyeOffset; e1y = eyeOffset;
+                e2x = tileWidth - eyeOffset; e2y = eyeOffset;
+            } else if (currentDir === 'DOWN') {
+                e1x = eyeOffset; e1y = tileWidth - eyeOffset;
+                e2x = tileWidth - eyeOffset; e2y = tileWidth - eyeOffset;
+            }
+
+            ctx.beginPath();
+            ctx.arc(segment.x * tileWidth + e1x, segment.y * tileWidth + e1y, eyeSize, 0, Math.PI * 2);
+            ctx.arc(segment.x * tileWidth + e2x, segment.y * tileWidth + e2y, eyeSize, 0, Math.PI * 2);
+            ctx.fill();
+        }
+
+        // --- Core Animation Frame Logic Engine ---
+        function frameTick(timestamp) {
+            window.requestAnimationFrame(frameTick);
+
+            if (!lastFrameTime) lastFrameTime = timestamp;
+            const delta = timestamp - lastFrameTime;
+            lastFrameTime = timestamp;
+
+            if (gameStatus === 'PLAYING') {
+                // Tick Down Active Power Time Limit
+                if (activePower) {
+                    powerupTimer -= delta;
+                    const progressPercent = Math.max(0, (powerupTimer / 6000) * 100);
+                    updatePowerHUD(activePower.toUpperCase(), progressPercent);
+
+                    if (powerupTimer <= 0) {
+                        activePower = null;
+                        updatePowerHUD('NONE', 0);
+                    }
+                }
+
+                // Dynamic speed from solo pace (or standard in CPU mode)
+                const pace = getPaceSettings();
+                let dynamicSpeed = pace.baseStepTime - (score * pace.ramp);
+                dynamicSpeed = Math.max(55, dynamicSpeed);
+                if (activePower === 'freeze') {
+                    dynamicSpeed *= 1.7;
+                }
+
+                if (!activePower) {
+                    syncHudBuffer();
+                }
+
+                snakeMoveTimer += delta;
+                if (snakeMoveTimer >= dynamicSpeed) {
+                    executeMovementTick();
+                    snakeMoveTimer = 0;
+                }
+            }
+
+            // Always render scenes cleanly
+            drawGameboard();
+        }
+
+        // --- Controller / CTA Listeners Setup ---
+
+        UI.startPlayBtn.addEventListener('click', () => {
+            initNewGame();
+        });
+
+        UI.retryBtn.addEventListener('click', () => {
+            initNewGame();
+        });
+
+        UI.menuReturnBtn.addEventListener('click', () => {
+            gameStatus = 'MENU';
+            UI.gameOverPanel.classList.add('hidden');
+            UI.menuPanel.classList.remove('hidden');
+        });
+
+        // Dedicated Header Pause Button event listener
+        UI.pauseToggleBtn.addEventListener('click', () => {
+            if (gameStatus === 'PLAYING' || gameStatus === 'PAUSED') {
+                togglePause();
+            }
+        });
+
+        // --- Handbook / Modal Operations ---
+        UI.helpToggleBtn.addEventListener('click', () => {
+            UI.helpModal.classList.remove('hidden');
+            UI.helpModal.classList.add('flex');
+        });
+
+        UI.closeHelpBtn.addEventListener('click', () => {
+            UI.helpModal.classList.add('hidden');
+            UI.helpModal.classList.remove('flex');
+        });
+
+        // Initialize menu selections from persisted settings
+        setSoloPace(soloPace);
+        setOpponent(opponentType);
+
+        // Launch Frame Process Lifecycle
+        window.requestAnimationFrame(frameTick);
+    </script>
+</body>
+</html>
