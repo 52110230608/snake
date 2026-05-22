@@ -123,7 +123,7 @@
                         </div>
                     </div>
 
-                    <!-- Mode Selection (hidden in solo — classic only) -->
+                    <!-- Mode Selection -->
                     <div id="gameModeSection">
                         <span class="text-xs font-bold text-slate-500 tracking-wider block mb-1.5 uppercase">Game Mode</span>
                         <div class="grid grid-cols-3 gap-2">
@@ -710,8 +710,6 @@
                 UI.hudHighScoreLabel.textContent = "HIGH SCORE";
                 UI.cpuDifficultySection.classList.add('hidden');
                 UI.soloPaceSection.classList.remove('hidden');
-                UI.gameModeSection.classList.add('hidden');
-                currentMode = 'classic';
                 activePower = null;
                 powerup = null;
                 powerupTimer = 0;
@@ -846,9 +844,8 @@
                 generateLabyrinthObstacles();
             }
 
-            // Solo: classic only, no power-ups; fill board with multiple coins
+            // Solo: no power-ups; fill board with multiple coins
             if (opponentType === 'solo') {
-                currentMode = 'classic';
                 activePower = null;
                 powerup = null;
                 powerupTimer = 0;
@@ -1868,9 +1865,6 @@
         // Initialize menu selections from persisted settings
         setSoloPace(soloPace);
         setOpponent(opponentType);
-        if (opponentType === 'solo') {
-            UI.gameModeSection.classList.add('hidden');
-        }
 
         // Launch Frame Process Lifecycle
         window.requestAnimationFrame(frameTick);
